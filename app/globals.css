@@ -1,0 +1,108 @@
+@import "../styles.css";
+
+.login-page {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 24px;
+  background:
+    radial-gradient(circle at 88% 18%, rgba(149, 245, 163, 0.18), transparent 30%),
+    linear-gradient(135deg, var(--green-950), var(--green-800));
+}
+
+.login-card {
+  width: min(420px, 100%);
+  padding: 32px;
+  border: 1px solid var(--slate-200);
+  border-radius: 16px;
+  background: var(--white);
+  box-shadow: var(--shadow);
+}
+
+.login-card h1 {
+  margin: 0;
+  font-size: 28px;
+  letter-spacing: -0.03em;
+}
+
+.login-card p {
+  margin: 8px 0 24px;
+  color: var(--slate-500);
+  font-size: 15px;
+}
+
+.login-field {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.login-field label {
+  color: var(--slate-700);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.login-field input {
+  height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--slate-200);
+  border-radius: 8px;
+}
+
+.login-field input:focus {
+  border-color: var(--green-500);
+  outline: 3px solid rgba(43, 184, 77, 0.12);
+}
+
+.login-button,
+.logout-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 44px;
+  border: 0;
+  border-radius: 8px;
+  color: var(--white);
+  font-weight: 900;
+  background: linear-gradient(135deg, var(--green-700), var(--green-500));
+  cursor: pointer;
+}
+
+.logout-button {
+  width: auto;
+  padding: 0 14px;
+  font-size: 13px;
+}
+
+.login-error {
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border: 1px solid #ffd2d2;
+  border-radius: 8px;
+  color: #a52222;
+  font-size: 14px;
+  font-weight: 700;
+  background: var(--red-50);
+}
+
+.admin-profile-button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.public-home {
+  min-height: 100vh;
+  padding: 40px 32px;
+}
+
+@media (max-width: 720px) {
+  .public-home {
+    padding: 24px 16px;
+  }
+}
