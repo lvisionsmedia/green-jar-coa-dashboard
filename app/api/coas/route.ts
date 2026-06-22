@@ -9,6 +9,7 @@ export const maxDuration = 60;
 type FinalizePayload = {
   blobUrl?: string;
   fileName?: string;
+  fileSize?: number;
 };
 
 export async function GET(request: Request) {
@@ -51,7 +52,11 @@ export async function POST(request: Request) {
         );
       }
 
-      const record = await finalizeCoaUpload(blobUrl, fileName);
+      const record = await finalizeCoaUpload(
+        blobUrl,
+        fileName,
+        payload.fileSize,
+      );
       await createCoa(record);
 
       return NextResponse.json({ uploaded: [record] });

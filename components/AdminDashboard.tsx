@@ -140,6 +140,7 @@ export function AdminDashboard() {
           body: JSON.stringify({
             blobUrl: blob.url,
             fileName: file.name,
+            fileSize: file.size,
           }),
         });
 

@@ -2,6 +2,7 @@ import { formatFileSize } from "@/lib/format";
 
 export const MAX_UPLOAD_SIZE = 25 * 1024 * 1024;
 export const MAX_STORED_SIZE = 2 * 1024 * 1024;
+const MIN_PDF_BYTES = 100;
 
 const SAVE_OPTIONS = [
   "compress,compress-images,compress-fonts,garbage=4",
@@ -36,6 +37,18 @@ export function isPdfBuffer(input: Uint8Array): boolean {
     input[2] === 0x44 &&
     input[3] === 0x46
   );
+}
+
+function isUsablePdfOutput(output: Uint8Array): boolean {
+  return output.length >= MIN_PDF_BYTES && isPdfBuffer(output);
+}
+
+function pickBetterOutput(current: Uint8Array, candidate: Uint8Array): Uint8Array {
+  if (!isUsablePdfOutput(candidate)) {
+    return current;
+  }
+
+  return candidate.length < current.length ? candidate : current;
 }
 
 function openPdf(mupdf: MupdfModule, input: Uint8Array): PDFDocument {
@@ -79,12 +92,9 @@ function tryLosslessCompression(
       }
 
       const output = savePdf(pdf, options);
+      best = pickBetterOutput(best, output);
 
-      if (output.length < best.length) {
-        best = output;
-      }
-
-      if (best.length <= MAX_STORED_SIZE) {
+      if (best.length <= MAX_STORED_SIZE && isUsablePdfOutput(best)) {
         return best;
       }
     } catch (error) {
@@ -145,6 +155,10 @@ function rasterizePdf(
 }
 
 export async function compressPdf(input: Uint8Array): Promise<Uint8Array> {
+  if (input.length === 0) {
+    throw new Error("PDF file is empty.");
+  }
+
   if (!isPdfBuffer(input)) {
     throw new Error("Invalid PDF file.");
   }
@@ -155,24 +169,26 @@ export async function compressPdf(input: Uint8Array): Promise<Uint8Array> {
 
   const mupdf = await loadMupdf();
   const lossless = tryLosslessCompression(mupdf, input, true);
-  if (lossless.length <= MAX_STORED_SIZE) {
+  if (lossless.length <= MAX_STORED_SIZE && isUsablePdfOutput(lossless)) {
     return lossless;
   }
 
-  let best = lossless;
+  let best = isUsablePdfOutput(lossless) ? lossless : input;
 
   for (const tier of RASTER_TIERS) {
     try {
       const output = rasterizePdf(mupdf, input, tier.scale, tier.quality);
-      if (output.length < best.length) {
-        best = output;
-      }
-      if (output.length <= MAX_STORED_SIZE) {
-        return output;
+      best = pickBetterOutput(best, output);
+      if (best.length <= MAX_STORED_SIZE && isUsablePdfOutput(best)) {
+        return best;
       }
     } catch (error) {
       console.warn("PDF raster compression tier failed:", error);
     }
+  }
+
+  if (best.length <= MAX_STORED_SIZE && isUsablePdfOutput(best)) {
+    return best;
   }
 
   throw new Error(
