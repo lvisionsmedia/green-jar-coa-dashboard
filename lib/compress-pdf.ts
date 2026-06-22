@@ -1,4 +1,3 @@
-import mupdf, { PDFDocument } from "mupdf";
 import { formatFileSize } from "@/lib/format";
 
 export const MAX_UPLOAD_SIZE = 25 * 1024 * 1024;
@@ -17,6 +16,18 @@ const RASTER_TIERS = [
   { scale: 0.45, quality: 35 },
 ] as const;
 
+type MupdfModule = typeof import("mupdf");
+type PDFDocument = import("mupdf").PDFDocument;
+
+let mupdfModule: MupdfModule | null = null;
+
+async function loadMupdf(): Promise<MupdfModule> {
+  if (!mupdfModule) {
+    mupdfModule = await import("mupdf");
+  }
+  return mupdfModule;
+}
+
 export function isPdfBuffer(input: Uint8Array): boolean {
   return (
     input.length >= 4 &&
@@ -27,8 +38,8 @@ export function isPdfBuffer(input: Uint8Array): boolean {
   );
 }
 
-function openPdf(input: Uint8Array): PDFDocument {
-  const doc = mupdf.Document.openDocument(input, "application/pdf");
+function openPdf(mupdf: MupdfModule, input: Uint8Array): PDFDocument {
+  const doc = mupdf.default.Document.openDocument(input, "application/pdf");
 
   if (doc.needsPassword()) {
     doc.destroy();
@@ -49,6 +60,7 @@ function savePdf(pdf: PDFDocument, options: string): Uint8Array {
 }
 
 function tryLosslessCompression(
+  mupdf: MupdfModule,
   input: Uint8Array,
   aggressive: boolean,
 ): Uint8Array {
@@ -59,7 +71,7 @@ function tryLosslessCompression(
     let pdf: PDFDocument | null = null;
 
     try {
-      pdf = openPdf(input);
+      pdf = openPdf(mupdf, input);
 
       if (aggressive && index === tiers.length - 1) {
         pdf.subsetFonts();
@@ -86,12 +98,14 @@ function tryLosslessCompression(
 }
 
 function rasterizePdf(
+  mupdf: MupdfModule,
   input: Uint8Array,
   scale: number,
   jpegQuality: number,
 ): Uint8Array {
-  const src = mupdf.Document.openDocument(input, "application/pdf");
-  const out = new mupdf.PDFDocument();
+  const lib = mupdf.default;
+  const src = lib.Document.openDocument(input, "application/pdf");
+  const out = new lib.PDFDocument();
   const pageCount = src.countPages();
 
   try {
@@ -100,10 +114,10 @@ function rasterizePdf(
       const bounds = page.getBounds();
       const width = bounds[2] - bounds[0];
       const height = bounds[3] - bounds[1];
-      const matrix = mupdf.Matrix.scale(scale, scale);
-      const pixmap = page.toPixmap(matrix, mupdf.ColorSpace.DeviceRGB, false);
+      const matrix = lib.Matrix.scale(scale, scale);
+      const pixmap = page.toPixmap(matrix, lib.ColorSpace.DeviceRGB, false);
       const jpeg = pixmap.asJPEG(jpegQuality);
-      const image = new mupdf.Image(jpeg);
+      const image = new lib.Image(jpeg);
       const imageRef = out.addImage(image);
       const imageWidth = pixmap.getWidth();
       const imageHeight = pixmap.getHeight();
@@ -130,19 +144,17 @@ function rasterizePdf(
   }
 }
 
-export function compressPdf(input: Uint8Array): Uint8Array {
+export async function compressPdf(input: Uint8Array): Promise<Uint8Array> {
   if (!isPdfBuffer(input)) {
     throw new Error("Invalid PDF file.");
   }
 
-  const alreadySmall = input.length <= MAX_STORED_SIZE;
-
-  if (alreadySmall) {
-    const compressed = tryLosslessCompression(input, false);
-    return compressed.length < input.length ? compressed : input;
+  if (input.length <= MAX_STORED_SIZE) {
+    return input;
   }
 
-  const lossless = tryLosslessCompression(input, true);
+  const mupdf = await loadMupdf();
+  const lossless = tryLosslessCompression(mupdf, input, true);
   if (lossless.length <= MAX_STORED_SIZE) {
     return lossless;
   }
@@ -151,7 +163,7 @@ export function compressPdf(input: Uint8Array): Uint8Array {
 
   for (const tier of RASTER_TIERS) {
     try {
-      const output = rasterizePdf(input, tier.scale, tier.quality);
+      const output = rasterizePdf(mupdf, input, tier.scale, tier.quality);
       if (output.length < best.length) {
         best = output;
       }

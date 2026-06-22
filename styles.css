@@ -348,6 +348,11 @@ a {
   cursor: pointer;
 }
 
+.drop-zone.uploading {
+  opacity: 0.72;
+  pointer-events: none;
+}
+
 .drop-primary,
 .helper-box {
   pointer-events: none;

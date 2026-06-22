@@ -4,6 +4,7 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ["mupdf"],
   outputFileTracingIncludes: {
     "/api/coas": ["./node_modules/mupdf/dist/mupdf-wasm.wasm"],
+    "/api/coas/route": ["./node_modules/mupdf/dist/mupdf-wasm.wasm"],
   },
 };
 

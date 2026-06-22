@@ -106,3 +106,61 @@
     padding: 24px 16px;
   }
 }
+
+.refresh-prompt {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 1000;
+  display: grid;
+  gap: 14px;
+  width: min(360px, calc(100vw - 32px));
+  padding: 18px 18px 16px;
+  border: 1px solid rgba(31, 154, 68, 0.22);
+  border-radius: 14px;
+  background: var(--white);
+  box-shadow: 0 16px 40px rgba(16, 24, 40, 0.14);
+}
+
+.refresh-prompt-body strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 15px;
+}
+
+.refresh-prompt-body p {
+  margin: 0;
+  color: var(--slate-500);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.refresh-prompt-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.refresh-prompt-actions button {
+  height: 38px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 8px;
+  color: var(--white);
+  font-size: 13px;
+  font-weight: 800;
+  background: linear-gradient(135deg, var(--green-700), var(--green-500));
+  cursor: pointer;
+}
+
+.refresh-prompt-actions button.ghost {
+  border: 1px solid var(--slate-200);
+  color: var(--slate-700);
+  background: var(--white);
+}
+
+@media (max-width: 720px) {
+  .refresh-prompt {
+    right: 16px;
+    bottom: 16px;
+  }
+}

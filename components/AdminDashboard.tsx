@@ -1,6 +1,6 @@
 "use client";
 
-import { signOut } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
 import { useCallback, useEffect, useState } from "react";
 import { formatDate, formatFileSize } from "@/lib/format";
 import type { CoaRecord } from "@/lib/types";
@@ -28,7 +28,9 @@ export function AdminDashboard() {
   const [uploadMessage, setUploadMessage] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const { data: session } = useSession();
 
   const loadCoas = useCallback(async () => {
     setLoading(true);
@@ -111,26 +113,52 @@ export function AdminDashboard() {
 
     if (validFiles.length === 0) return;
 
-    const formData = new FormData();
-    validFiles.forEach((file) => formData.append("files", file));
-
-    const response = await fetch("/api/coas", {
-      method: "POST",
-      body: formData,
-      credentials: "same-origin",
-    });
-
-    if (!response.ok) {
-      const data = await response.json().catch(() => ({}));
-      setError(data.error ?? "Upload failed.");
+    if (!session) {
+      setError("Session expired. Please sign in again.");
       return;
     }
 
-    setUploadMessage(
-      `${validFiles.length} ${validFiles.length === 1 ? "file" : "files"} uploaded successfully`,
-    );
-    setPage(1);
-    await loadCoas();
+    const formData = new FormData();
+    validFiles.forEach((file) => formData.append("files", file));
+
+    setUploading(true);
+
+    try {
+      const response = await fetch("/api/coas", {
+        method: "POST",
+        body: formData,
+        credentials: "same-origin",
+      });
+
+      const body = await response.text();
+      let message = "Upload failed.";
+
+      try {
+        const data = JSON.parse(body) as { error?: string };
+        if (data.error) message = data.error;
+      } catch {
+        if (response.status === 401) {
+          message = "Session expired. Please sign in again.";
+        } else if (body) {
+          message = `Upload failed (${response.status}). Please refresh and try again.`;
+        }
+      }
+
+      if (!response.ok) {
+        setError(message);
+        return;
+      }
+
+      setUploadMessage(
+        `${validFiles.length} ${validFiles.length === 1 ? "file" : "files"} uploaded successfully`,
+      );
+      setPage(1);
+      await loadCoas();
+    } catch {
+      setError("Upload failed. Check your connection and try again.");
+    } finally {
+      setUploading(false);
+    }
   }
 
   async function deleteFile(id: string) {
@@ -196,21 +224,25 @@ export function AdminDashboard() {
           Upload COA&apos;s PDFs
         </h2>
         <div
-          className={`drop-zone${dragOver ? " drag-over" : ""}`}
-          tabIndex={0}
+          className={`drop-zone${dragOver ? " drag-over" : ""}${uploading ? " uploading" : ""}`}
+          tabIndex={uploading ? -1 : 0}
           role="button"
           aria-label="Upload PDF files"
+          aria-busy={uploading}
           onDragOver={(event) => {
+            if (uploading) return;
             event.preventDefault();
             setDragOver(true);
           }}
           onDragLeave={() => setDragOver(false)}
           onDrop={(event) => {
+            if (uploading) return;
             event.preventDefault();
             setDragOver(false);
             void handleFiles(event.dataTransfer.files);
           }}
           onKeyDown={(event) => {
+            if (uploading) return;
             if (event.key === "Enter" || event.key === " ") {
               event.preventDefault();
               document.getElementById("file-input")?.click();
@@ -222,6 +254,7 @@ export function AdminDashboard() {
             type="file"
             accept="application/pdf,.pdf"
             multiple
+            disabled={uploading}
             onChange={(event) => {
               void handleFiles(event.target.files);
               event.target.value = "";
@@ -248,8 +281,8 @@ export function AdminDashboard() {
               </svg>
             </span>
             <div>
-              <p>Drag &amp; Drop PDF files here</p>
-              <span>or click to browse</span>
+              <p>{uploading ? "Uploading PDF..." : "Drag & Drop PDF files here"}</p>
+              <span>{uploading ? "Please wait" : "or click to browse"}</span>
               <small>Only PDF files are allowed</small>
             </div>
           </div>

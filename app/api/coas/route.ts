@@ -74,7 +74,7 @@ export async function POST(request: Request) {
       let compressed: Uint8Array;
 
       try {
-        compressed = compressPdf(input);
+        compressed = await compressPdf(input);
       } catch (error) {
         const message =
           error instanceof Error ? error.message : "Could not compress PDF.";
