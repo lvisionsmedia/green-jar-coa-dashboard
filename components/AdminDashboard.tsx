@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { formatDate, formatFileSize } from "@/lib/format";
 import type { CoaRecord } from "@/lib/types";
 
-const MAX_FILE_SIZE = 25 * 1024 * 1024;
+const MAX_UPLOAD_SIZE = 25 * 1024 * 1024;
 const PUBLIC_URL =
   process.env.NEXT_PUBLIC_SITE_URL ?? "https://thegreenjar.xyz";
 
@@ -82,7 +82,7 @@ export function AdminDashboard() {
         return;
       }
 
-      if (file.size > MAX_FILE_SIZE) {
+      if (file.size > MAX_UPLOAD_SIZE) {
         errors.push(`${file.name} is larger than 25MB.`);
         return;
       }
@@ -255,7 +255,7 @@ export function AdminDashboard() {
             </svg>
             <div>
               <strong>PDF files only</strong>
-              <span>Max file size: 25MB</span>
+              <span>Upload up to 25MB — stored under 2MB</span>
               <span>Multiple files allowed</span>
             </div>
           </div>
