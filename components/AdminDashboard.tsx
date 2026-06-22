@@ -1,5 +1,6 @@
 "use client";
 
+import { upload } from "@vercel/blob/client";
 import { signOut, useSession } from "next-auth/react";
 import { useCallback, useEffect, useState } from "react";
 import { formatDate, formatFileSize } from "@/lib/format";
@@ -118,44 +119,64 @@ export function AdminDashboard() {
       return;
     }
 
-    const formData = new FormData();
-    validFiles.forEach((file) => formData.append("files", file));
-
     setUploading(true);
 
     try {
-      const response = await fetch("/api/coas", {
-        method: "POST",
-        body: formData,
-        credentials: "same-origin",
-      });
+      const uploadedCount = validFiles.length;
 
-      const body = await response.text();
-      let message = "Upload failed.";
+      for (const file of validFiles) {
+        const tempId = crypto.randomUUID();
+        const blob = await upload(`coas/tmp/${tempId}.pdf`, file, {
+          access: "public",
+          handleUploadUrl: "/api/coas/upload",
+          contentType: "application/pdf",
+          multipart: file.size > 5 * 1024 * 1024,
+        });
 
-      try {
-        const data = JSON.parse(body) as { error?: string };
-        if (data.error) message = data.error;
-      } catch {
-        if (response.status === 401) {
-          message = "Session expired. Please sign in again.";
-        } else if (body) {
-          message = `Upload failed (${response.status}). Please refresh and try again.`;
+        const response = await fetch("/api/coas", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
+          body: JSON.stringify({
+            blobUrl: blob.url,
+            fileName: file.name,
+          }),
+        });
+
+        const body = await response.text();
+        let message = "Upload failed.";
+
+        try {
+          const data = JSON.parse(body) as { error?: string };
+          if (data.error) message = data.error;
+        } catch {
+          if (response.status === 401) {
+            message = "Session expired. Please sign in again.";
+          } else if (response.status === 413) {
+            message =
+              "File is too large for the server to accept. Try a smaller PDF or refresh the page.";
+          } else if (body) {
+            message = `Upload failed (${response.status}). Please refresh and try again.`;
+          }
+        }
+
+        if (!response.ok) {
+          setError(`${file.name}: ${message}`);
+          return;
         }
       }
 
-      if (!response.ok) {
-        setError(message);
-        return;
-      }
-
       setUploadMessage(
-        `${validFiles.length} ${validFiles.length === 1 ? "file" : "files"} uploaded successfully`,
+        `${uploadedCount} ${uploadedCount === 1 ? "file" : "files"} uploaded successfully`,
       );
       setPage(1);
       await loadCoas();
-    } catch {
-      setError("Upload failed. Check your connection and try again.");
+    } catch (uploadError) {
+      const message =
+        uploadError instanceof Error
+          ? uploadError.message
+          : "Upload failed. Check your connection and try again.";
+      setError(message);
     } finally {
       setUploading(false);
     }

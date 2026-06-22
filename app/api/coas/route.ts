@@ -1,15 +1,15 @@
-import { put } from "@vercel/blob";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { createCoa, listCoas } from "@/lib/coas";
-import {
-  compressPdf,
-  isPdfBuffer,
-  MAX_UPLOAD_SIZE,
-} from "@/lib/compress-pdf";
+import { finalizeCoaUpload } from "@/lib/finalize-coa-upload";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
+
+type FinalizePayload = {
+  blobUrl?: string;
+  fileName?: string;
+};
 
 export async function GET(request: Request) {
   try {
@@ -37,72 +37,33 @@ export async function POST(request: Request) {
   }
 
   try {
-    const formData = await request.formData();
-    const files = formData.getAll("files");
+    const contentType = request.headers.get("content-type") ?? "";
 
-    if (files.length === 0) {
-      return NextResponse.json({ error: "No files provided." }, { status: 400 });
-    }
+    if (contentType.includes("application/json")) {
+      const payload = (await request.json()) as FinalizePayload;
+      const blobUrl = payload.blobUrl?.trim();
+      const fileName = payload.fileName?.trim();
 
-    const uploaded = [];
-
-    for (const entry of files) {
-      if (!(entry instanceof File)) continue;
-
-      if (entry.size > MAX_UPLOAD_SIZE) {
+      if (!blobUrl || !fileName) {
         return NextResponse.json(
-          { error: `${entry.name} is larger than 25MB.` },
+          { error: "Missing upload details." },
           { status: 400 },
         );
       }
 
-      const input = new Uint8Array(await entry.arrayBuffer());
-
-      const isPdf =
-        isPdfBuffer(input) ||
-        entry.type === "application/pdf" ||
-        entry.type === "application/x-pdf" ||
-        entry.name.toLowerCase().endsWith(".pdf");
-
-      if (!isPdf) {
-        return NextResponse.json(
-          { error: `${entry.name} is not a PDF.` },
-          { status: 400 },
-        );
-      }
-
-      let compressed: Uint8Array;
-
-      try {
-        compressed = await compressPdf(input);
-      } catch (error) {
-        const message =
-          error instanceof Error ? error.message : "Could not compress PDF.";
-        return NextResponse.json(
-          { error: `${entry.name}: ${message}` },
-          { status: 400 },
-        );
-      }
-
-      const id = crypto.randomUUID();
-      const blob = await put(`coas/${id}.pdf`, Buffer.from(compressed), {
-        access: "public",
-        contentType: "application/pdf",
-      });
-
-      const record = {
-        id,
-        fileName: entry.name,
-        blobUrl: blob.url,
-        fileSize: compressed.length,
-        uploadedAt: new Date().toISOString(),
-      };
-
+      const record = await finalizeCoaUpload(blobUrl, fileName);
       await createCoa(record);
-      uploaded.push(record);
+
+      return NextResponse.json({ uploaded: [record] });
     }
 
-    return NextResponse.json({ uploaded });
+    return NextResponse.json(
+      {
+        error:
+          "Direct uploads are no longer supported. Please refresh the page and try again.",
+      },
+      { status: 400 },
+    );
   } catch (error) {
     console.error("POST /api/coas failed:", error);
     const message =
