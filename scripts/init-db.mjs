@@ -1,22 +1,32 @@
-import { neon } from "@neondatabase/serverless";
+import { createClient } from "@supabase/supabase-js";
 
-const databaseUrl = process.env.DATABASE_URL;
+const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+const key =
+  process.env.SUPABASE_SERVICE_ROLE_KEY ||
+  process.env.SUPABASE_SECRET_KEY ||
+  process.env.greencoa_SUPABASE_SERVICE_ROLE_KEY ||
+  process.env.greencoa_SUPABASE_SECRET_KEY;
 
-if (!databaseUrl) {
-  console.error("DATABASE_URL is not set.");
+if (!url || !key) {
+  console.error(
+    "Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in .env.local.",
+  );
+  console.error(
+    "Get the service role key from Supabase Dashboard → Settings → API → service_role.",
+  );
   process.exit(1);
 }
 
-const sql = neon(databaseUrl);
+const supabase = createClient(url, key, { auth: { persistSession: false } });
 
-await sql`
-  CREATE TABLE IF NOT EXISTS coas (
-    id TEXT PRIMARY KEY,
-    file_name TEXT NOT NULL,
-    blob_url TEXT NOT NULL,
-    file_size INTEGER NOT NULL,
-    uploaded_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  )
-`;
+const { error } = await supabase.from("coas").select("id").limit(1);
 
-console.log("Database schema ready.");
+if (error) {
+  console.error(`The "coas" table is not ready: ${error.message}`);
+  console.error(
+    "Open the Supabase Dashboard -> SQL Editor and run the contents of supabase/migrations/001_coas.sql",
+  );
+  process.exit(1);
+}
+
+console.log('Supabase is configured and the "coas" table is ready.');

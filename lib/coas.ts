@@ -1,6 +1,6 @@
 import { del } from "@vercel/blob";
 import type { CoaRecord } from "@/lib/types";
-import { ensureSchema, getSql } from "@/lib/db";
+import { getSupabase } from "@/lib/supabase";
 
 type ListOptions = {
   search?: string;
@@ -28,63 +28,36 @@ function mapRow(row: DbRow): CoaRecord {
 }
 
 export async function listCoas(options: ListOptions = {}) {
-  await ensureSchema();
-  const sql = getSql();
+  const supabase = getSupabase();
 
-  const search = options.search?.trim().toLowerCase() ?? "";
+  const search = options.search?.trim() ?? "";
   const sort = options.sort === "oldest" ? "oldest" : "newest";
   const page = Math.max(1, options.page ?? 1);
   const pageSize = Math.min(100, Math.max(1, options.pageSize ?? 10));
   const offset = (page - 1) * pageSize;
-  const searchPattern = search ? `%${search}%` : null;
 
-  const rows =
-    searchPattern && sort === "oldest"
-      ? await sql`
-          SELECT id, file_name, blob_url, file_size, uploaded_at
-          FROM coas
-          WHERE LOWER(file_name) LIKE ${searchPattern}
-          ORDER BY uploaded_at ASC
-          LIMIT ${pageSize}
-          OFFSET ${offset}
-        `
-      : searchPattern
-        ? await sql`
-            SELECT id, file_name, blob_url, file_size, uploaded_at
-            FROM coas
-            WHERE LOWER(file_name) LIKE ${searchPattern}
-            ORDER BY uploaded_at DESC
-            LIMIT ${pageSize}
-            OFFSET ${offset}
-          `
-        : sort === "oldest"
-          ? await sql`
-              SELECT id, file_name, blob_url, file_size, uploaded_at
-              FROM coas
-              ORDER BY uploaded_at ASC
-              LIMIT ${pageSize}
-              OFFSET ${offset}
-            `
-          : await sql`
-              SELECT id, file_name, blob_url, file_size, uploaded_at
-              FROM coas
-              ORDER BY uploaded_at DESC
-              LIMIT ${pageSize}
-              OFFSET ${offset}
-            `;
+  let query = supabase
+    .from("coas")
+    .select("id, file_name, blob_url, file_size, uploaded_at", {
+      count: "exact",
+    });
 
-  const countRows = searchPattern
-    ? await sql`
-        SELECT COUNT(*)::int AS total
-        FROM coas
-        WHERE LOWER(file_name) LIKE ${searchPattern}
-      `
-    : await sql`SELECT COUNT(*)::int AS total FROM coas`;
+  if (search) {
+    query = query.ilike("file_name", `%${search}%`);
+  }
 
-  const total = countRows[0]?.total ?? 0;
+  const { data, count, error } = await query
+    .order("uploaded_at", { ascending: sort === "oldest" })
+    .range(offset, offset + pageSize - 1);
+
+  if (error) {
+    throw new Error(`Failed to list COAs: ${error.message}`);
+  }
+
+  const total = count ?? 0;
 
   return {
-    items: (rows as DbRow[]).map(mapRow),
+    items: ((data ?? []) as DbRow[]).map(mapRow),
     total,
     page,
     pageSize,
@@ -93,32 +66,33 @@ export async function listCoas(options: ListOptions = {}) {
 }
 
 export async function getCoa(id: string) {
-  await ensureSchema();
-  const sql = getSql();
-  const rows = await sql`
-    SELECT id, file_name, blob_url, file_size, uploaded_at
-    FROM coas
-    WHERE id = ${id}
-    LIMIT 1
-  `;
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from("coas")
+    .select("id, file_name, blob_url, file_size, uploaded_at")
+    .eq("id", id)
+    .maybeSingle();
 
-  const row = rows[0] as DbRow | undefined;
-  return row ? mapRow(row) : null;
+  if (error) {
+    throw new Error(`Failed to get COA: ${error.message}`);
+  }
+
+  return data ? mapRow(data as DbRow) : null;
 }
 
 export async function createCoa(record: CoaRecord) {
-  await ensureSchema();
-  const sql = getSql();
-  await sql`
-    INSERT INTO coas (id, file_name, blob_url, file_size, uploaded_at)
-    VALUES (
-      ${record.id},
-      ${record.fileName},
-      ${record.blobUrl},
-      ${record.fileSize},
-      ${record.uploadedAt}
-    )
-  `;
+  const supabase = getSupabase();
+  const { error } = await supabase.from("coas").insert({
+    id: record.id,
+    file_name: record.fileName,
+    blob_url: record.blobUrl,
+    file_size: record.fileSize,
+    uploaded_at: record.uploadedAt,
+  });
+
+  if (error) {
+    throw new Error(`Failed to create COA: ${error.message}`);
+  }
 }
 
 export async function deleteCoa(id: string) {
@@ -127,7 +101,12 @@ export async function deleteCoa(id: string) {
 
   await del(coa.blobUrl);
 
-  const sql = getSql();
-  await sql`DELETE FROM coas WHERE id = ${id}`;
+  const supabase = getSupabase();
+  const { error } = await supabase.from("coas").delete().eq("id", id);
+
+  if (error) {
+    throw new Error(`Failed to delete COA: ${error.message}`);
+  }
+
   return true;
 }
