@@ -6,8 +6,17 @@ import {
   MAX_UPLOAD_SIZE,
 } from "@/lib/compress-pdf";
 
-async function fetchUploadedPdf(blobUrl: string): Promise<Uint8Array> {
-  const delaysMs = [0, 400, 800, 1200, 1600];
+const MIN_PDF_BYTES = 1024;
+
+async function fetchUploadedPdf(
+  blobUrl: string,
+  expectedSize: number,
+): Promise<Uint8Array> {
+  const delaysMs = [0, 400, 800, 1200, 1600, 2400, 3200];
+  const minimumBytes = Math.max(
+    MIN_PDF_BYTES,
+    Math.floor(expectedSize * 0.9),
+  );
 
   for (const delayMs of delaysMs) {
     if (delayMs > 0) {
@@ -20,7 +29,10 @@ async function fetchUploadedPdf(blobUrl: string): Promise<Uint8Array> {
     }
 
     const data = new Uint8Array(await response.arrayBuffer());
-    if (data.length > 0 && isPdfBuffer(data)) {
+    if (
+      data.length >= minimumBytes &&
+      isPdfBuffer(data)
+    ) {
       return data;
     }
   }
@@ -35,21 +47,22 @@ export async function finalizeCoaUpload(
   fileName: string,
   expectedSize?: number,
 ): Promise<CoaRecord> {
-  const input = await fetchUploadedPdf(blobUrl);
-
-  if (expectedSize && expectedSize > 0 && input.length < expectedSize * 0.9) {
+  if (!expectedSize || expectedSize <= 0) {
     throw new Error(
-      `${fileName} did not finish uploading completely. Please try again.`,
+      `${fileName}: missing upload size. Please refresh and try again.`,
     );
   }
+
+  const input = await fetchUploadedPdf(blobUrl, expectedSize);
 
   if (input.length > MAX_UPLOAD_SIZE) {
     throw new Error(`${fileName} is larger than 25MB.`);
   }
 
   const compressed = await compressPdf(input);
+  const minimumBytes = Math.max(MIN_PDF_BYTES, Math.floor(input.length * 0.02));
 
-  if (compressed.length === 0 || !isPdfBuffer(compressed)) {
+  if (compressed.length < minimumBytes || !isPdfBuffer(compressed)) {
     throw new Error(`${fileName}: Compression produced an invalid PDF.`);
   }
 

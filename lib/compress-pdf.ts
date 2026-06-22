@@ -2,7 +2,7 @@ import { formatFileSize } from "@/lib/format";
 
 export const MAX_UPLOAD_SIZE = 25 * 1024 * 1024;
 export const MAX_STORED_SIZE = 2 * 1024 * 1024;
-const MIN_PDF_BYTES = 100;
+const MIN_PDF_BYTES = 1024;
 
 const SAVE_OPTIONS = [
   "compress,compress-images,compress-fonts,garbage=4",
@@ -39,12 +39,59 @@ export function isPdfBuffer(input: Uint8Array): boolean {
   );
 }
 
-function isUsablePdfOutput(output: Uint8Array): boolean {
-  return output.length >= MIN_PDF_BYTES && isPdfBuffer(output);
+function countPages(mupdf: MupdfModule, input: Uint8Array): number {
+  const doc = mupdf.default.Document.openDocument(input, "application/pdf");
+  try {
+    return doc.countPages();
+  } finally {
+    doc.destroy();
+  }
 }
 
-function pickBetterOutput(current: Uint8Array, candidate: Uint8Array): Uint8Array {
-  if (!isUsablePdfOutput(candidate)) {
+function isUsableCompressedOutput(
+  mupdf: MupdfModule,
+  output: Uint8Array,
+  original: Uint8Array,
+  originalPageCount: number,
+): boolean {
+  if (!isPdfBuffer(output) || output.length < MIN_PDF_BYTES) {
+    return false;
+  }
+
+  let outputPageCount = 0;
+  try {
+    outputPageCount = countPages(mupdf, output);
+  } catch {
+    return false;
+  }
+
+  if (outputPageCount === 0 || outputPageCount < originalPageCount) {
+    return false;
+  }
+
+  const minimumBytes = Math.max(
+    MIN_PDF_BYTES,
+    Math.floor(original.length * 0.02),
+  );
+
+  return output.length >= minimumBytes;
+}
+
+function pickBetterOutput(
+  mupdf: MupdfModule,
+  current: Uint8Array,
+  candidate: Uint8Array,
+  original: Uint8Array,
+  originalPageCount: number,
+): Uint8Array {
+  if (
+    !isUsableCompressedOutput(
+      mupdf,
+      candidate,
+      original,
+      originalPageCount,
+    )
+  ) {
     return current;
   }
 
@@ -75,26 +122,28 @@ function savePdf(pdf: PDFDocument, options: string): Uint8Array {
 function tryLosslessCompression(
   mupdf: MupdfModule,
   input: Uint8Array,
-  aggressive: boolean,
+  originalPageCount: number,
 ): Uint8Array {
   let best = input;
-  const tiers = aggressive ? SAVE_OPTIONS : [SAVE_OPTIONS[0]];
 
-  for (const [index, options] of tiers.entries()) {
+  for (const options of SAVE_OPTIONS) {
     let pdf: PDFDocument | null = null;
 
     try {
       pdf = openPdf(mupdf, input);
-
-      if (aggressive && index === tiers.length - 1) {
-        pdf.subsetFonts();
-        pdf.bake(true, true);
-      }
-
       const output = savePdf(pdf, options);
-      best = pickBetterOutput(best, output);
+      best = pickBetterOutput(
+        mupdf,
+        best,
+        output,
+        input,
+        originalPageCount,
+      );
 
-      if (best.length <= MAX_STORED_SIZE && isUsablePdfOutput(best)) {
+      if (
+        best.length <= MAX_STORED_SIZE &&
+        isUsableCompressedOutput(mupdf, best, input, originalPageCount)
+      ) {
         return best;
       }
     } catch (error) {
@@ -117,6 +166,12 @@ function rasterizePdf(
   const src = lib.Document.openDocument(input, "application/pdf");
   const out = new lib.PDFDocument();
   const pageCount = src.countPages();
+
+  if (pageCount === 0) {
+    src.destroy();
+    out.destroy();
+    throw new Error("PDF has no pages.");
+  }
 
   try {
     for (let i = 0; i < pageCount; i++) {
@@ -168,18 +223,44 @@ export async function compressPdf(input: Uint8Array): Promise<Uint8Array> {
   }
 
   const mupdf = await loadMupdf();
-  const lossless = tryLosslessCompression(mupdf, input, true);
-  if (lossless.length <= MAX_STORED_SIZE && isUsablePdfOutput(lossless)) {
+  const originalPageCount = countPages(mupdf, input);
+
+  if (originalPageCount === 0) {
+    throw new Error("PDF has no pages.");
+  }
+
+  const lossless = tryLosslessCompression(mupdf, input, originalPageCount);
+  if (
+    lossless.length <= MAX_STORED_SIZE &&
+    isUsableCompressedOutput(mupdf, lossless, input, originalPageCount)
+  ) {
     return lossless;
   }
 
-  let best = isUsablePdfOutput(lossless) ? lossless : input;
+  let best = isUsableCompressedOutput(
+    mupdf,
+    lossless,
+    input,
+    originalPageCount,
+  )
+    ? lossless
+    : input;
 
   for (const tier of RASTER_TIERS) {
     try {
       const output = rasterizePdf(mupdf, input, tier.scale, tier.quality);
-      best = pickBetterOutput(best, output);
-      if (best.length <= MAX_STORED_SIZE && isUsablePdfOutput(best)) {
+      best = pickBetterOutput(
+        mupdf,
+        best,
+        output,
+        input,
+        originalPageCount,
+      );
+
+      if (
+        best.length <= MAX_STORED_SIZE &&
+        isUsableCompressedOutput(mupdf, best, input, originalPageCount)
+      ) {
         return best;
       }
     } catch (error) {
@@ -187,8 +268,15 @@ export async function compressPdf(input: Uint8Array): Promise<Uint8Array> {
     }
   }
 
-  if (best.length <= MAX_STORED_SIZE && isUsablePdfOutput(best)) {
+  if (
+    best.length <= MAX_STORED_SIZE &&
+    isUsableCompressedOutput(mupdf, best, input, originalPageCount)
+  ) {
     return best;
+  }
+
+  if (isUsableCompressedOutput(mupdf, input, input, originalPageCount)) {
+    return input;
   }
 
   throw new Error(
