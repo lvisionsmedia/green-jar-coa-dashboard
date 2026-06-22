@@ -2,7 +2,14 @@ import { put } from "@vercel/blob";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { createCoa, listCoas } from "@/lib/coas";
-import { compressPdf, MAX_UPLOAD_SIZE } from "@/lib/compress-pdf";
+import {
+  compressPdf,
+  isPdfBuffer,
+  MAX_UPLOAD_SIZE,
+} from "@/lib/compress-pdf";
+
+export const runtime = "nodejs";
+export const maxDuration = 60;
 
 export async function GET(request: Request) {
   try {
@@ -42,8 +49,19 @@ export async function POST(request: Request) {
     for (const entry of files) {
       if (!(entry instanceof File)) continue;
 
+      if (entry.size > MAX_UPLOAD_SIZE) {
+        return NextResponse.json(
+          { error: `${entry.name} is larger than 25MB.` },
+          { status: 400 },
+        );
+      }
+
+      const input = new Uint8Array(await entry.arrayBuffer());
+
       const isPdf =
+        isPdfBuffer(input) ||
         entry.type === "application/pdf" ||
+        entry.type === "application/x-pdf" ||
         entry.name.toLowerCase().endsWith(".pdf");
 
       if (!isPdf) {
@@ -53,14 +71,6 @@ export async function POST(request: Request) {
         );
       }
 
-      if (entry.size > MAX_UPLOAD_SIZE) {
-        return NextResponse.json(
-          { error: `${entry.name} is larger than 25MB.` },
-          { status: 400 },
-        );
-      }
-
-      const input = new Uint8Array(await entry.arrayBuffer());
       let compressed: Uint8Array;
 
       try {
@@ -95,9 +105,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ uploaded });
   } catch (error) {
     console.error("POST /api/coas failed:", error);
-    return NextResponse.json(
-      { error: "Failed to upload COA files." },
-      { status: 500 },
-    );
+    const message =
+      error instanceof Error ? error.message : "Failed to upload COA files.";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

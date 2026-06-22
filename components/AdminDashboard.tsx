@@ -64,31 +64,46 @@ export function AdminDashboard() {
     loadCoas();
   }, [loadCoas]);
 
+  async function isPdfFile(file: File) {
+    if (
+      file.type === "application/pdf" ||
+      file.type === "application/x-pdf" ||
+      file.name.toLowerCase().endsWith(".pdf")
+    ) {
+      return true;
+    }
+
+    const header = new Uint8Array(await file.slice(0, 4).arrayBuffer());
+    return (
+      header[0] === 0x25 &&
+      header[1] === 0x50 &&
+      header[2] === 0x44 &&
+      header[3] === 0x46
+    );
+  }
+
   async function handleFiles(fileList: FileList | null) {
     setError("");
+    setUploadMessage("");
     const files = Array.from(fileList ?? []);
     if (files.length === 0) return;
 
     const validFiles: File[] = [];
     const errors: string[] = [];
 
-    files.forEach((file) => {
-      const isPdf =
-        file.type === "application/pdf" ||
-        file.name.toLowerCase().endsWith(".pdf");
-
-      if (!isPdf) {
+    for (const file of files) {
+      if (!(await isPdfFile(file))) {
         errors.push(`${file.name} is not a PDF.`);
-        return;
+        continue;
       }
 
       if (file.size > MAX_UPLOAD_SIZE) {
         errors.push(`${file.name} is larger than 25MB.`);
-        return;
+        continue;
       }
 
       validFiles.push(file);
-    });
+    }
 
     if (errors.length > 0) {
       setError(errors.join(" "));
@@ -102,6 +117,7 @@ export function AdminDashboard() {
     const response = await fetch("/api/coas", {
       method: "POST",
       body: formData,
+      credentials: "same-origin",
     });
 
     if (!response.ok) {

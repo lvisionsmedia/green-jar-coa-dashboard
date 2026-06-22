@@ -17,6 +17,16 @@ const RASTER_TIERS = [
   { scale: 0.45, quality: 35 },
 ] as const;
 
+export function isPdfBuffer(input: Uint8Array): boolean {
+  return (
+    input.length >= 4 &&
+    input[0] === 0x25 &&
+    input[1] === 0x50 &&
+    input[2] === 0x44 &&
+    input[3] === 0x46
+  );
+}
+
 function openPdf(input: Uint8Array): PDFDocument {
   const doc = mupdf.Document.openDocument(input, "application/pdf");
 
@@ -38,26 +48,37 @@ function savePdf(pdf: PDFDocument, options: string): Uint8Array {
   return pdf.saveToBuffer(options).asUint8Array();
 }
 
-function tryLosslessCompression(input: Uint8Array): Uint8Array {
+function tryLosslessCompression(
+  input: Uint8Array,
+  aggressive: boolean,
+): Uint8Array {
   let best = input;
+  const tiers = aggressive ? SAVE_OPTIONS : [SAVE_OPTIONS[0]];
 
-  for (const [index, options] of SAVE_OPTIONS.entries()) {
-    const pdf = openPdf(input);
+  for (const [index, options] of tiers.entries()) {
+    let pdf: PDFDocument | null = null;
 
-    if (index === SAVE_OPTIONS.length - 1) {
-      pdf.subsetFonts();
-      pdf.bake(true, true);
-    }
+    try {
+      pdf = openPdf(input);
 
-    const output = savePdf(pdf, options);
-    pdf.destroy();
+      if (aggressive && index === tiers.length - 1) {
+        pdf.subsetFonts();
+        pdf.bake(true, true);
+      }
 
-    if (output.length < best.length) {
-      best = output;
-    }
+      const output = savePdf(pdf, options);
 
-    if (best.length <= MAX_STORED_SIZE) {
-      return best;
+      if (output.length < best.length) {
+        best = output;
+      }
+
+      if (best.length <= MAX_STORED_SIZE) {
+        return best;
+      }
+    } catch (error) {
+      console.warn("PDF lossless compression tier failed:", error);
+    } finally {
+      pdf?.destroy();
     }
   }
 
@@ -110,12 +131,18 @@ function rasterizePdf(
 }
 
 export function compressPdf(input: Uint8Array): Uint8Array {
-  if (input.length <= MAX_STORED_SIZE) {
-    const compressed = tryLosslessCompression(input);
+  if (!isPdfBuffer(input)) {
+    throw new Error("Invalid PDF file.");
+  }
+
+  const alreadySmall = input.length <= MAX_STORED_SIZE;
+
+  if (alreadySmall) {
+    const compressed = tryLosslessCompression(input, false);
     return compressed.length < input.length ? compressed : input;
   }
 
-  const lossless = tryLosslessCompression(input);
+  const lossless = tryLosslessCompression(input, true);
   if (lossless.length <= MAX_STORED_SIZE) {
     return lossless;
   }
@@ -123,12 +150,16 @@ export function compressPdf(input: Uint8Array): Uint8Array {
   let best = lossless;
 
   for (const tier of RASTER_TIERS) {
-    const output = rasterizePdf(input, tier.scale, tier.quality);
-    if (output.length < best.length) {
-      best = output;
-    }
-    if (output.length <= MAX_STORED_SIZE) {
-      return output;
+    try {
+      const output = rasterizePdf(input, tier.scale, tier.quality);
+      if (output.length < best.length) {
+        best = output;
+      }
+      if (output.length <= MAX_STORED_SIZE) {
+        return output;
+      }
+    } catch (error) {
+      console.warn("PDF raster compression tier failed:", error);
     }
   }
 
