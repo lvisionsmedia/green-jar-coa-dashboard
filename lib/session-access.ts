@@ -31,7 +31,7 @@ export function resolveWritableStoreId(
   }
 
   const sessionStoreId = getSessionStoreId(session);
-  if (!sessionStoreId || !hostStoreId) return null;
-  if (sessionStoreId !== hostStoreId) return null;
+  if (!sessionStoreId) return null;
+  if (hostStoreId && sessionStoreId !== hostStoreId) return null;
   return sessionStoreId;
 }

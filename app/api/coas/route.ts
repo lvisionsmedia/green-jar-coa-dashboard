@@ -19,7 +19,7 @@ export async function GET(request: Request) {
     const tenant = await resolveRequestTenant(request);
     if (!tenant.store) {
       return NextResponse.json(
-        { error: "COA files are only available on a store subdomain." },
+        { error: "COA files are only available for a store. Pass storeSlug." },
         { status: 400 },
       );
     }
@@ -59,7 +59,7 @@ export async function POST(request: Request) {
 
     if (!storeId) {
       return NextResponse.json(
-        { error: "Upload is only available on a store subdomain." },
+        { error: "Upload is only available for a store. Pass storeSlug." },
         { status: 400 },
       );
     }

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BrandMark } from "@/components/BrandMark";
+import { storePublicPath } from "@/lib/tenant";
 
 type SidebarProps = {
   storeName: string;
@@ -8,10 +9,12 @@ type SidebarProps = {
 
 export function Sidebar({ storeName, storeSlug }: SidebarProps) {
   const shortLabel = storeName.split(/\s+/).slice(0, 2).join(" ").toUpperCase();
+  const adminPath = `${storePublicPath(storeSlug)}/admin`;
+  const publicPath = storePublicPath(storeSlug);
 
   return (
     <aside className="sidebar" aria-label="Main navigation">
-      <Link className="brand" href="/admin" aria-label={`${storeName} dashboard`}>
+      <Link className="brand" href={adminPath} aria-label={`${storeName} dashboard`}>
         <BrandMark />
         <span>
           <small>{storeSlug.slice(0, 2).toUpperCase()}</small>
@@ -21,7 +24,7 @@ export function Sidebar({ storeName, storeSlug }: SidebarProps) {
       </Link>
 
       <nav className="nav-tabs">
-        <Link className="nav-tab active" href="/admin">
+        <Link className="nav-tab active" href={adminPath}>
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path
               d="M7 3h7l4 4v14H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"
@@ -47,8 +50,8 @@ export function Sidebar({ storeName, storeSlug }: SidebarProps) {
         </div>
         <p>{shortLabel}</p>
         <h2>COAs</h2>
-        <span>Store subdomain ready.</span>
-        <Link href="/">View Public Page</Link>
+        <span>/store/{storeSlug}</span>
+        <Link href={publicPath}>View Public Page</Link>
       </div>
     </aside>
   );

@@ -4,7 +4,11 @@ import { useEffect, useState } from "react";
 import { formatDate, formatFileSize } from "@/lib/format";
 import type { CoaRecord } from "@/lib/types";
 
-export function PublicCoaList() {
+type PublicCoaListProps = {
+  storeSlug: string;
+};
+
+export function PublicCoaList({ storeSlug }: PublicCoaListProps) {
   const [coas, setCoas] = useState<CoaRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -12,7 +16,11 @@ export function PublicCoaList() {
   useEffect(() => {
     async function loadCoas() {
       try {
-        const response = await fetch("/api/coas?pageSize=100");
+        const params = new URLSearchParams({
+          pageSize: "100",
+          storeSlug,
+        });
+        const response = await fetch(`/api/coas?${params.toString()}`);
         if (!response.ok) {
           throw new Error("Failed to load COA files.");
         }
@@ -31,7 +39,7 @@ export function PublicCoaList() {
     }
 
     loadCoas();
-  }, []);
+  }, [storeSlug]);
 
   if (loading) {
     return (
@@ -56,7 +64,7 @@ export function PublicCoaList() {
       {coas.map((coa) => (
         <a
           key={coa.id}
-          href={`/api/coas/${coa.id}/file`}
+          href={`/api/coas/${coa.id}/file?storeSlug=${encodeURIComponent(storeSlug)}`}
           target="_blank"
           rel="noopener noreferrer"
         >

@@ -19,7 +19,7 @@ export async function POST(request: Request) {
 
     if (!storeId) {
       return NextResponse.json(
-        { error: "Upload is only available on a store subdomain." },
+        { error: "Upload is only available for a store. Pass storeSlug." },
         { status: 400 },
       );
     }

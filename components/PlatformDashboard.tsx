@@ -110,7 +110,7 @@ export function PlatformDashboard() {
         <div>
           <p className="platform-eyebrow">Platform</p>
           <h1>Stores</h1>
-          <p>Create a store subdomain and its admin login.</p>
+          <p>Create a store path and its admin login.</p>
         </div>
         <button
           className="login-button"
@@ -143,7 +143,7 @@ export function PlatformDashboard() {
             />
           </div>
           <div className="login-field">
-            <label htmlFor="store-slug">Subdomain slug</label>
+            <label htmlFor="store-slug">Store slug</label>
             <input
               id="store-slug"
               value={slug}
@@ -152,7 +152,7 @@ export function PlatformDashboard() {
               required
             />
             <small className="platform-hint">
-              Becomes {slug || "slug"}.thegreenjar.xyz
+              Becomes /store/{slug || "slug"}
             </small>
           </div>
           <div className="login-field">
@@ -211,7 +211,7 @@ export function PlatformDashboard() {
                     </td>
                     <td>
                       <a
-                        href={`${store.publicUrl}/admin`}
+                        href={`${store.publicUrl.replace(/\/$/, "")}/admin`}
                         target="_blank"
                         rel="noreferrer"
                       >

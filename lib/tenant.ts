@@ -1,105 +1,50 @@
-export const RESERVED_SUBDOMAINS = new Set([
+/** Slugs that cannot be used as store path segments. */
+export const RESERVED_SLUGS = new Set([
   "www",
   "admin",
   "platform",
   "api",
   "mail",
   "app",
+  "login",
+  "store",
 ]);
 
-export const ROOT_DOMAINS = [
-  "thegreenjar.xyz",
-  "localhost",
-  "127.0.0.1",
-];
-
-export type HostContext =
-  | { kind: "apex" }
-  | { kind: "reserved"; subdomain: string }
-  | { kind: "store"; slug: string }
-  | { kind: "unknown" };
-
-function stripPort(host: string) {
-  return host.split(":")[0]?.toLowerCase() ?? "";
-}
-
-export function parseHost(hostHeader: string | null): HostContext {
-  if (!hostHeader) return { kind: "unknown" };
-
-  const host = stripPort(hostHeader);
-
-  if (!host) return { kind: "unknown" };
-
-  // Local subdomain: green-jar.localhost
-  if (host.endsWith(".localhost")) {
-    const slug = host.slice(0, -".localhost".length);
-    if (!slug || RESERVED_SUBDOMAINS.has(slug)) {
-      return { kind: "reserved", subdomain: slug || "localhost" };
-    }
-    return { kind: "store", slug };
-  }
-
-  if (host === "localhost" || host === "127.0.0.1") {
-    return { kind: "apex" };
-  }
-
-  // Vercel preview / deployment hosts act as apex/platform
-  if (host.endsWith(".vercel.app")) {
-    return { kind: "apex" };
-  }
-
-  for (const root of ROOT_DOMAINS) {
-    if (host === root) {
-      return { kind: "apex" };
-    }
-
-    if (host === `www.${root}`) {
-      return { kind: "apex" };
-    }
-
-    const suffix = `.${root}`;
-    if (host.endsWith(suffix)) {
-      const slug = host.slice(0, -suffix.length);
-      if (!slug.includes(".") && slug.length > 0) {
-        if (RESERVED_SUBDOMAINS.has(slug)) {
-          return { kind: "reserved", subdomain: slug };
-        }
-        return { kind: "store", slug };
-      }
-    }
-  }
-
-  return { kind: "unknown" };
-}
+export type StorePathContext = {
+  slug: string;
+  /** Path after `/store/{slug}`, e.g. `/admin`, `/login`, or `""` for the public page. */
+  rest: string;
+};
 
 export function isValidStoreSlug(slug: string): boolean {
-  return /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) && !RESERVED_SUBDOMAINS.has(slug);
+  return (
+    /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) && !RESERVED_SLUGS.has(slug)
+  );
 }
 
-export function storePublicOrigin(slug: string, requestHost?: string | null) {
+/** Extract store slug from `/store/{slug}/...`. */
+export function parseStorePath(pathname: string): StorePathContext | null {
+  const match = pathname.match(/^\/store\/([^/]+)(\/.*)?$/);
+  if (!match) return null;
+
+  const slug = match[1]?.toLowerCase() ?? "";
+  if (!slug || !isValidStoreSlug(slug)) return null;
+
+  const rest = match[2] ?? "";
+  return { slug, rest };
+}
+
+/** Relative public path for a store, e.g. `/store/green-jar`. */
+export function storePublicPath(slug: string): string {
+  return `/store/${slug.toLowerCase()}`;
+}
+
+/** Absolute public URL for a store. */
+export function storePublicUrl(slug: string): string {
   const site =
     process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ??
     "https://thegreenjar.xyz";
-
-  try {
-    const siteUrl = new URL(site);
-    const rootHost = siteUrl.hostname.replace(/^www\./, "");
-
-    if (requestHost) {
-      const host = stripPort(requestHost);
-      if (host.endsWith(".localhost") || host === "localhost") {
-        return `http://${slug}.localhost:${siteUrl.port || "3000"}`;
-      }
-    }
-
-    if (rootHost === "localhost" || rootHost === "127.0.0.1") {
-      return `http://${slug}.localhost:${siteUrl.port || "3000"}`;
-    }
-
-    return `${siteUrl.protocol}//${slug}.${rootHost}`;
-  } catch {
-    return `https://${slug}.thegreenjar.xyz`;
-  }
+  return `${site}${storePublicPath(slug)}`;
 }
 
 export const STORE_ID_HEADER = "x-store-id";

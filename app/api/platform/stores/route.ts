@@ -3,7 +3,7 @@ import { auth } from "@/auth";
 import { createStoreWithAdmin } from "@/lib/store-admin";
 import { listStores } from "@/lib/stores";
 import { getSessionRole } from "@/lib/session-access";
-import { storePublicOrigin } from "@/lib/tenant";
+import { storePublicUrl } from "@/lib/tenant";
 
 function requirePlatform() {
   return auth().then((session) => {
@@ -14,7 +14,7 @@ function requirePlatform() {
   });
 }
 
-export async function GET(request: Request) {
+export async function GET() {
   const session = await requirePlatform();
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -22,11 +22,10 @@ export async function GET(request: Request) {
 
   try {
     const stores = await listStores();
-    const host = request.headers.get("host");
     return NextResponse.json({
       stores: stores.map((store) => ({
         ...store,
-        publicUrl: storePublicOrigin(store.slug, host),
+        publicUrl: storePublicUrl(store.slug),
       })),
     });
   } catch (error) {
@@ -60,11 +59,10 @@ export async function POST(request: Request) {
       adminPassword: payload.adminPassword ?? "",
     });
 
-    const host = request.headers.get("host");
     return NextResponse.json({
       store: {
         ...store,
-        publicUrl: storePublicOrigin(store.slug, host),
+        publicUrl: storePublicUrl(store.slug),
       },
     });
   } catch (error) {

@@ -6,7 +6,8 @@ import {
   STORE_ID_HEADER,
   STORE_NAME_HEADER,
   STORE_SLUG_HEADER,
-  parseHost,
+  parseStorePath,
+  storePublicPath,
 } from "@/lib/tenant";
 
 const { auth } = NextAuth(authConfig);
@@ -52,29 +53,27 @@ async function lookupStoreBySlug(slug: string): Promise<StoreLookup | null> {
   return rows[0] ?? null;
 }
 
-function sessionRole(authValue: { user?: { role?: string; storeId?: string | null } } | null) {
+function sessionRole(authValue: {
+  user?: { role?: string; storeId?: string | null };
+} | null) {
   return authValue?.user?.role ?? null;
 }
 
-function sessionStoreId(authValue: { user?: { storeId?: string | null } } | null) {
+function sessionStoreId(authValue: {
+  user?: { storeId?: string | null };
+} | null) {
   return authValue?.user?.storeId ?? null;
 }
 
 export default auth(async (request) => {
   const { pathname } = request.nextUrl;
-  const hostContext = parseHost(request.headers.get("host"));
-
+  const storePath = parseStorePath(pathname);
   const requestHeaders = new Headers(request.headers);
-  requestHeaders.set(HOST_KIND_HEADER, hostContext.kind);
 
-  if (hostContext.kind === "reserved") {
-    return new NextResponse("Not found", { status: 404 });
-  }
-
-  if (hostContext.kind === "store") {
+  if (storePath) {
     let store: StoreLookup | null;
     try {
-      store = await lookupStoreBySlug(hostContext.slug);
+      store = await lookupStoreBySlug(storePath.slug);
     } catch (error) {
       console.error("Store lookup failed:", error);
       return new NextResponse("Store lookup failed", { status: 500 });
@@ -84,33 +83,32 @@ export default auth(async (request) => {
       return new NextResponse("Store not found", { status: 404 });
     }
 
+    requestHeaders.set(HOST_KIND_HEADER, "store");
     requestHeaders.set(STORE_ID_HEADER, store.id);
     requestHeaders.set(STORE_SLUG_HEADER, store.slug);
     requestHeaders.set(STORE_NAME_HEADER, store.name);
 
-    if (pathname.startsWith("/platform")) {
-      const site =
-        process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ??
-        "https://thegreenjar.xyz";
-      return NextResponse.redirect(new URL("/platform", site));
-    }
+    const isAdminPath =
+      storePath.rest === "/admin" || storePath.rest.startsWith("/admin/");
 
-    if (pathname.startsWith("/admin")) {
+    if (isAdminPath) {
       const role = sessionRole(request.auth);
       const userStoreId = sessionStoreId(request.auth);
+      const loginUrl = new URL(
+        `${storePublicPath(store.slug)}/login`,
+        request.nextUrl.origin,
+      );
 
       if (!request.auth) {
-        const loginUrl = new URL("/login", request.nextUrl.origin);
         loginUrl.searchParams.set("callbackUrl", pathname);
         return NextResponse.redirect(loginUrl);
       }
 
       if (role === "store" && userStoreId && userStoreId !== store.id) {
-        return NextResponse.redirect(new URL("/login", request.nextUrl.origin));
+        return NextResponse.redirect(loginUrl);
       }
 
       if (role !== "platform" && role !== "store") {
-        const loginUrl = new URL("/login", request.nextUrl.origin);
         loginUrl.searchParams.set("callbackUrl", pathname);
         return NextResponse.redirect(loginUrl);
       }
@@ -121,8 +119,10 @@ export default auth(async (request) => {
     });
   }
 
-  // Apex / platform host
-  if (pathname.startsWith("/admin")) {
+  requestHeaders.set(HOST_KIND_HEADER, "apex");
+
+  // Legacy apex /admin → platform
+  if (pathname === "/admin" || pathname.startsWith("/admin/")) {
     return NextResponse.redirect(new URL("/platform", request.nextUrl.origin));
   }
 

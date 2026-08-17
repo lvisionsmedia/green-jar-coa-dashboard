@@ -19,7 +19,7 @@ export async function DELETE(
 
     if (!storeId) {
       return NextResponse.json(
-        { error: "Deletes are only available on a store subdomain." },
+        { error: "Deletes are only available for a store. Pass storeSlug." },
         { status: 400 },
       );
     }

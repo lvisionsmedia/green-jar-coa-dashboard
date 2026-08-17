@@ -2,33 +2,24 @@
 
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { FormEvent, useEffect, useMemo, useState } from "react";
-import { parseHost } from "@/lib/tenant";
+import { FormEvent, useState } from "react";
+import { storePublicPath } from "@/lib/tenant";
 
-export function LoginForm() {
+type LoginFormProps = {
+  mode: "platform" | "store";
+  storeSlug?: string;
+  storeName?: string;
+};
+
+export function LoginForm({ mode, storeSlug, storeName }: LoginFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [storeSlug, setStoreSlug] = useState("");
-  const [hostKind, setHostKind] = useState<"apex" | "store" | "other">("other");
-
-  useEffect(() => {
-    const host = window.location.host;
-    const context = parseHost(host);
-    if (context.kind === "store") {
-      setStoreSlug(context.slug);
-      setHostKind("store");
-    } else if (context.kind === "apex") {
-      setHostKind("apex");
-    } else {
-      setHostKind("other");
-    }
-  }, []);
-
-  const defaultCallback = useMemo(() => {
-    if (hostKind === "apex") return "/platform";
-    return "/admin";
-  }, [hostKind]);
-
+  const defaultCallback =
+    mode === "platform"
+      ? "/platform"
+      : storeSlug
+        ? `${storePublicPath(storeSlug)}/admin`
+        : "/platform";
   const callbackUrl = searchParams.get("callbackUrl") ?? defaultCallback;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -43,7 +34,7 @@ export function LoginForm() {
     const result = await signIn("credentials", {
       email,
       password,
-      storeSlug: hostKind === "store" ? storeSlug : "",
+      storeSlug: mode === "store" ? (storeSlug ?? "") : "",
       redirect: false,
     });
 
@@ -60,13 +51,15 @@ export function LoginForm() {
 
   return (
     <form className="login-card" onSubmit={handleSubmit}>
-      <h1>{hostKind === "apex" ? "Platform Login" : "Admin Login"}</h1>
+      <h1>{mode === "platform" ? "Platform Login" : "Admin Login"}</h1>
       <p>
-        {hostKind === "apex"
+        {mode === "platform"
           ? "Sign in as platform admin to create and manage stores."
-          : storeSlug
-            ? `Sign in to manage COA files for ${storeSlug}.`
-            : "Sign in to upload and manage COA files."}
+          : storeName
+            ? `Sign in to manage COA files for ${storeName}.`
+            : storeSlug
+              ? `Sign in to manage COA files for ${storeSlug}.`
+              : "Sign in to upload and manage COA files."}
       </p>
 
       {error ? <div className="login-error">{error}</div> : null}

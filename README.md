@@ -1,17 +1,17 @@
 # The Green Jar COA Dashboard
 
-Multi-tenant COA library. Each store gets its own subdomain, public list, and admin login. Platform admins manage stores from the apex domain.
+Multi-tenant COA library. Each store gets its own path under `/store/{slug}`, public list, and admin login. Platform admins manage stores from `/platform`.
 
-## Hosts
+## URLs
 
-| Host | Purpose |
-|------|---------|
-| `thegreenjar.xyz` | Platform landing + `/platform` (create stores) |
-| `{slug}.thegreenjar.xyz` | Store public COA page |
-| `{slug}.thegreenjar.xyz/admin` | Store admin dashboard |
-| `{slug}.thegreenjar.xyz/login` | Store admin login |
-
-Reserved subdomains (not stores): `www`, `admin`, `platform`, `api`, `mail`, `app`.
+| URL | Purpose |
+|-----|---------|
+| `thegreenjar.xyz/` | Platform landing |
+| `thegreenjar.xyz/platform` | Create and list stores |
+| `thegreenjar.xyz/login` | Platform admin login |
+| `thegreenjar.xyz/store/{slug}` | Store public COA page |
+| `thegreenjar.xyz/store/{slug}/admin` | Store admin dashboard |
+| `thegreenjar.xyz/store/{slug}/login` | Store admin login |
 
 ## Local development
 
@@ -46,11 +46,12 @@ npm run db:init
 npm run dev
 ```
 
-Local subdomain testing (macOS / most browsers):
+Local URLs:
 
 - Platform: http://localhost:3000
-- Store: http://green-jar.localhost:3000
-- Store admin: http://green-jar.localhost:3000/admin
+- Store public: http://localhost:3000/store/green-jar
+- Store admin: http://localhost:3000/store/green-jar/admin
+- Store login: http://localhost:3000/store/green-jar/login
 
 ## Deploy to Vercel
 
@@ -61,7 +62,7 @@ Local subdomain testing (macOS / most browsers):
    - **Supabase** via Marketplace (`vercel integration add supabase` or Dashboard → Integrations)
 4. Set environment variables in the Vercel project:
    - `AUTH_SECRET`
-   - `AUTH_URL=https://thegreenjar.xyz`
+   - `AUTH_TRUST_HOST=true` (leave `AUTH_URL` unset)
    - `ADMIN_EMAIL` / `ADMIN_PASSWORD` (platform admin)
    - `NEXT_PUBLIC_SITE_URL=https://thegreenjar.xyz`
    - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, and `BLOB_READ_WRITE_TOKEN` are auto-provisioned by integrations
@@ -69,16 +70,16 @@ Local subdomain testing (macOS / most browsers):
 6. Add custom domains in Vercel → Project → Settings → Domains:
    - `thegreenjar.xyz`
    - `www.thegreenjar.xyz` (optional)
-   - `*.thegreenjar.xyz` (**wildcard** — required for store subdomains)
 7. Update DNS at your registrar:
    - Apex `thegreenjar.xyz` → `76.76.21.21` (A record) or registrar ALIAS to Vercel
    - Optional `www` → `cname.vercel-dns.com`
-   - Wildcard `*` → `cname.vercel-dns.com` (or the target Vercel shows for `*.thegreenjar.xyz`)
+
+No wildcard domain is required.
 
 ## Auth model
 
-- **Platform admin** — env `ADMIN_EMAIL` / `ADMIN_PASSWORD`. Logs in on the apex domain and uses `/platform` to create stores (name, slug, store admin email/password).
-- **Store admin** — stored in `store_users` (bcrypt). Logs in only on that store's subdomain.
+- **Platform admin** — env `ADMIN_EMAIL` / `ADMIN_PASSWORD`. Logs in at `/login` and uses `/platform` to create stores (name, slug, store admin email/password).
+- **Store admin** — stored in `store_users` (bcrypt). Logs in at `/store/{slug}/login`.
 
 Existing Green Jar COAs are migrated to the seeded store `green-jar`.
 
@@ -86,11 +87,12 @@ Existing Green Jar COAs are migrated to the seeded store `green-jar`.
 
 | URL | Access |
 |-----|--------|
-| `/` on apex | Platform landing |
+| `/` | Platform landing |
 | `/platform` | Create/list stores (platform login) |
-| `/` on store host | Public COA homepage for that store |
-| `/admin` on store host | Store upload/manage (login required) |
-| `/login` | Platform or store sign-in (depends on host) |
-| `/api/coas` | Store-scoped list / finalize upload |
-| `/api/coas/[id]/file` | Store-scoped PDF redirect |
+| `/store/{slug}` | Public COA homepage for that store |
+| `/store/{slug}/admin` | Store upload/manage (login required) |
+| `/store/{slug}/login` | Store admin sign-in |
+| `/login` | Platform sign-in |
+| `/api/coas?storeSlug=` | Store-scoped list / finalize upload |
+| `/api/coas/[id]/file?storeSlug=` | Store-scoped PDF redirect |
 | `/api/platform/stores` | Platform store CRUD |

@@ -5,18 +5,21 @@ import {
   STORE_ID_HEADER,
   STORE_NAME_HEADER,
   STORE_SLUG_HEADER,
-  parseHost,
+  parseStorePath,
 } from "@/lib/tenant";
 import type { StoreRecord } from "@/lib/types";
 
 export type RequestTenant = {
-  hostKind: "apex" | "store" | "reserved" | "unknown";
+  hostKind: "apex" | "store" | "unknown";
   store: StoreRecord | null;
 };
 
-export function getTenantFromRequestHeaders(
-  headerStore: Headers,
-): { storeId: string | null; storeSlug: string | null; storeName: string | null; hostKind: string } {
+export function getTenantFromRequestHeaders(headerStore: Headers): {
+  storeId: string | null;
+  storeSlug: string | null;
+  storeName: string | null;
+  hostKind: string;
+} {
   return {
     storeId: headerStore.get(STORE_ID_HEADER),
     storeSlug: headerStore.get(STORE_SLUG_HEADER),
@@ -25,37 +28,12 @@ export function getTenantFromRequestHeaders(
   };
 }
 
-export async function resolveRequestTenant(
-  request?: Request,
-): Promise<RequestTenant> {
-  if (request) {
-    const fromHeaders = getTenantFromRequestHeaders(request.headers);
-    if (fromHeaders.storeId && fromHeaders.storeSlug && fromHeaders.storeName) {
-      return {
-        hostKind: "store",
-        store: {
-          id: fromHeaders.storeId,
-          slug: fromHeaders.storeSlug,
-          name: fromHeaders.storeName,
-          createdAt: "",
-        },
-      };
-    }
-
-    const hostContext = parseHost(request.headers.get("host"));
-    if (hostContext.kind === "store") {
-      const store = await getStoreBySlug(hostContext.slug);
-      return { hostKind: "store", store };
-    }
-
-    return {
-      hostKind: hostContext.kind === "apex" ? "apex" : hostContext.kind,
-      store: null,
-    };
-  }
-
-  const headerList = await headers();
-  const fromHeaders = getTenantFromRequestHeaders(headerList);
+function tenantFromHeaderValues(fromHeaders: {
+  storeId: string | null;
+  storeSlug: string | null;
+  storeName: string | null;
+  hostKind: string;
+}): RequestTenant | null {
   if (fromHeaders.storeId && fromHeaders.storeSlug && fromHeaders.storeName) {
     return {
       hostKind: "store",
@@ -67,15 +45,39 @@ export async function resolveRequestTenant(
       },
     };
   }
+  return null;
+}
 
-  const hostContext = parseHost(headerList.get("host"));
-  if (hostContext.kind === "store") {
-    const store = await getStoreBySlug(hostContext.slug);
-    return { hostKind: "store", store };
+export async function resolveRequestTenant(
+  request?: Request,
+): Promise<RequestTenant> {
+  if (request) {
+    const fromHeaders = tenantFromHeaderValues(
+      getTenantFromRequestHeaders(request.headers),
+    );
+    if (fromHeaders) return fromHeaders;
+
+    const url = new URL(request.url);
+    const storeSlugParam = url.searchParams.get("storeSlug")?.trim().toLowerCase();
+    if (storeSlugParam) {
+      const store = await getStoreBySlug(storeSlugParam);
+      return { hostKind: store ? "store" : "unknown", store };
+    }
+
+    const pathContext = parseStorePath(url.pathname);
+    if (pathContext) {
+      const store = await getStoreBySlug(pathContext.slug);
+      return { hostKind: store ? "store" : "unknown", store };
+    }
+
+    return { hostKind: "apex", store: null };
   }
 
-  return {
-    hostKind: hostContext.kind === "apex" ? "apex" : hostContext.kind,
-    store: null,
-  };
+  const headerList = await headers();
+  const fromHeaders = tenantFromHeaderValues(
+    getTenantFromRequestHeaders(headerList),
+  );
+  if (fromHeaders) return fromHeaders;
+
+  return { hostKind: "apex", store: null };
 }

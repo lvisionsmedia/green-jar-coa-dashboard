@@ -40,10 +40,7 @@ export function AdminDashboard({
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const { data: session } = useSession();
-  const publicUrl =
-    typeof window !== "undefined"
-      ? window.location.origin
-      : `https://${storeSlug}.thegreenjar.xyz`;
+  const publicUrl = `/store/${storeSlug}`;
 
   const loadCoas = useCallback(async () => {
     setLoading(true);
@@ -53,6 +50,7 @@ export function AdminDashboard({
         sort,
         page: String(page),
         pageSize: String(pageSize),
+        storeSlug,
       });
       const response = await fetch(`/api/coas?${params.toString()}`);
       if (!response.ok) {
@@ -73,7 +71,7 @@ export function AdminDashboard({
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, search, sort]);
+  }, [page, pageSize, search, sort, storeSlug]);
 
   useEffect(() => {
     loadCoas();
@@ -143,22 +141,25 @@ export function AdminDashboard({
           file,
           {
             access: "public",
-            handleUploadUrl: "/api/coas/upload",
+            handleUploadUrl: `/api/coas/upload?storeSlug=${encodeURIComponent(storeSlug)}`,
             contentType: "application/pdf",
             multipart: file.size > 5 * 1024 * 1024,
           },
         );
 
-        const response = await fetch("/api/coas", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "same-origin",
-          body: JSON.stringify({
-            blobUrl: blob.url,
-            fileName: file.name,
-            fileSize: file.size,
-          }),
-        });
+        const response = await fetch(
+          `/api/coas?storeSlug=${encodeURIComponent(storeSlug)}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "same-origin",
+            body: JSON.stringify({
+              blobUrl: blob.url,
+              fileName: file.name,
+              fileSize: file.size,
+            }),
+          },
+        );
 
         const body = await response.text();
         let message = "Upload failed.";
@@ -200,7 +201,10 @@ export function AdminDashboard({
   }
 
   async function deleteFile(id: string) {
-    const response = await fetch(`/api/coas/${id}`, { method: "DELETE" });
+    const response = await fetch(
+      `/api/coas/${id}?storeSlug=${encodeURIComponent(storeSlug)}`,
+      { method: "DELETE" },
+    );
     if (!response.ok) {
       const data = await response.json().catch(() => ({}));
       setError(data.error ?? "Delete failed.");
@@ -211,7 +215,11 @@ export function AdminDashboard({
   }
 
   function previewFile(id: string) {
-    window.open(`/api/coas/${id}/file`, "_blank", "noopener,noreferrer");
+    window.open(
+      `/api/coas/${id}/file?storeSlug=${encodeURIComponent(storeSlug)}`,
+      "_blank",
+      "noopener,noreferrer",
+    );
   }
 
   const startIndex = total === 0 ? 0 : (page - 1) * pageSize;
@@ -231,7 +239,7 @@ export function AdminDashboard({
           className="admin-profile-button"
           type="button"
           onClick={() =>
-            signOut({ callbackUrl: `${window.location.origin}/login` })
+            signOut({ callbackUrl: `/store/${storeSlug}/login` })
           }
           aria-label="Sign out"
         >
