@@ -230,7 +230,9 @@ export function AdminDashboard({
         <button
           className="admin-profile-button"
           type="button"
-          onClick={() => signOut({ callbackUrl: "/login" })}
+          onClick={() =>
+            signOut({ callbackUrl: `${window.location.origin}/login` })
+          }
           aria-label="Sign out"
         >
           <span className="profile-avatar" aria-hidden="true">

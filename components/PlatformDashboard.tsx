@@ -115,7 +115,9 @@ export function PlatformDashboard() {
         <button
           className="login-button"
           type="button"
-          onClick={() => signOut({ callbackUrl: "/login" })}
+          onClick={() =>
+            signOut({ callbackUrl: `${window.location.origin}/login` })
+          }
         >
           Sign out {session?.user?.email ? `(${session.user.email})` : ""}
         </button>
