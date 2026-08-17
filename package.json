@@ -10,6 +10,7 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.108.1",
     "@vercel/blob": "^1.1.1",
+    "bcryptjs": "^3.0.3",
     "mupdf": "^1.27.0",
     "next": "^15.3.3",
     "next-auth": "^5.0.0-beta.28",
@@ -17,6 +18,7 @@
     "react-dom": "^19.1.0"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
     "@types/node": "^22.15.21",
     "@types/react": "^19.1.4",
     "@types/react-dom": "^19.1.5",

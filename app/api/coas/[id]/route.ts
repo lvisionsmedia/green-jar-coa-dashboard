@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { deleteCoa } from "@/lib/coas";
+import { resolveRequestTenant } from "@/lib/request-tenant";
+import { resolveWritableStoreId } from "@/lib/session-access";
 
 export async function DELETE(
-  _request: Request,
+  request: Request,
   context: { params: Promise<{ id: string }> },
 ) {
   const session = await auth();
@@ -12,8 +14,18 @@ export async function DELETE(
   }
 
   try {
+    const tenant = await resolveRequestTenant(request);
+    const storeId = resolveWritableStoreId(session, tenant.store?.id ?? null);
+
+    if (!storeId) {
+      return NextResponse.json(
+        { error: "Deletes are only available on a store subdomain." },
+        { status: 400 },
+      );
+    }
+
     const { id } = await context.params;
-    const deleted = await deleteCoa(id);
+    const deleted = await deleteCoa(id, storeId);
 
     if (!deleted) {
       return NextResponse.json({ error: "COA not found." }, { status: 404 });

@@ -1,15 +1,22 @@
 import Link from "next/link";
 import { BrandMark } from "@/components/BrandMark";
 
-export function Sidebar() {
+type SidebarProps = {
+  storeName: string;
+  storeSlug: string;
+};
+
+export function Sidebar({ storeName, storeSlug }: SidebarProps) {
+  const shortLabel = storeName.split(/\s+/).slice(0, 2).join(" ").toUpperCase();
+
   return (
     <aside className="sidebar" aria-label="Main navigation">
-      <Link className="brand" href="/admin" aria-label="The Green Jar dashboard">
+      <Link className="brand" href="/admin" aria-label={`${storeName} dashboard`}>
         <BrandMark />
         <span>
-          <small>TH</small>
-          <strong>GREEN JAR</strong>
-          <em>DISPENSARY</em>
+          <small>{storeSlug.slice(0, 2).toUpperCase()}</small>
+          <strong>{shortLabel}</strong>
+          <em>COA ADMIN</em>
         </span>
       </Link>
 
@@ -38,9 +45,9 @@ export function Sidebar() {
         <div className="promo-bud" aria-hidden="true">
           🌿
         </div>
-        <p>GREEN JAR</p>
-        <h2>LIFT OFF</h2>
-        <span>Fast. Friendly. Reliable.</span>
+        <p>{shortLabel}</p>
+        <h2>COAs</h2>
+        <span>Store subdomain ready.</span>
         <Link href="/">View Public Page</Link>
       </div>
     </aside>

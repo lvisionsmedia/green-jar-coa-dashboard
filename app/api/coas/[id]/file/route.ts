@@ -1,13 +1,22 @@
 import { NextResponse } from "next/server";
 import { getCoa } from "@/lib/coas";
+import { resolveRequestTenant } from "@/lib/request-tenant";
 
 export async function GET(
-  _request: Request,
+  request: Request,
   context: { params: Promise<{ id: string }> },
 ) {
   try {
+    const tenant = await resolveRequestTenant(request);
+    if (!tenant.store) {
+      return NextResponse.json(
+        { error: "COA files are only available on a store subdomain." },
+        { status: 400 },
+      );
+    }
+
     const { id } = await context.params;
-    const coa = await getCoa(id);
+    const coa = await getCoa(id, tenant.store.id);
 
     if (!coa) {
       return NextResponse.json({ error: "COA not found." }, { status: 404 });

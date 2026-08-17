@@ -29,10 +29,7 @@ async function fetchUploadedPdf(
     }
 
     const data = new Uint8Array(await response.arrayBuffer());
-    if (
-      data.length >= minimumBytes &&
-      isPdfBuffer(data)
-    ) {
+    if (data.length >= minimumBytes && isPdfBuffer(data)) {
       return data;
     }
   }
@@ -45,8 +42,13 @@ async function fetchUploadedPdf(
 export async function finalizeCoaUpload(
   blobUrl: string,
   fileName: string,
+  storeId: string,
   expectedSize?: number,
 ): Promise<CoaRecord> {
+  if (!storeId) {
+    throw new Error(`${fileName}: missing store. Please refresh and try again.`);
+  }
+
   if (!expectedSize || expectedSize <= 0) {
     throw new Error(
       `${fileName}: missing upload size. Please refresh and try again.`,
@@ -68,10 +70,14 @@ export async function finalizeCoaUpload(
 
   const id = crypto.randomUUID();
 
-  const blob = await put(`coas/${id}.pdf`, Buffer.from(compressed), {
-    access: "public",
-    contentType: "application/pdf",
-  });
+  const blob = await put(
+    `coas/${storeId}/${id}.pdf`,
+    Buffer.from(compressed),
+    {
+      access: "public",
+      contentType: "application/pdf",
+    },
+  );
 
   try {
     await del(blobUrl);
@@ -81,6 +87,7 @@ export async function finalizeCoaUpload(
 
   return {
     id,
+    storeId,
     fileName,
     blobUrl: blob.url,
     fileSize: compressed.length,

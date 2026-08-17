@@ -7,8 +7,6 @@ import { formatDate, formatFileSize } from "@/lib/format";
 import type { CoaRecord } from "@/lib/types";
 
 const MAX_UPLOAD_SIZE = 25 * 1024 * 1024;
-const PUBLIC_URL =
-  process.env.NEXT_PUBLIC_SITE_URL ?? "https://thegreenjar.xyz";
 
 type ListResponse = {
   items: CoaRecord[];
@@ -18,7 +16,17 @@ type ListResponse = {
   totalPages: number;
 };
 
-export function AdminDashboard() {
+type AdminDashboardProps = {
+  storeId: string;
+  storeName: string;
+  storeSlug: string;
+};
+
+export function AdminDashboard({
+  storeId,
+  storeName,
+  storeSlug,
+}: AdminDashboardProps) {
   const [coas, setCoas] = useState<CoaRecord[]>([]);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
@@ -32,6 +40,10 @@ export function AdminDashboard() {
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const { data: session } = useSession();
+  const publicUrl =
+    typeof window !== "undefined"
+      ? window.location.origin
+      : `https://${storeSlug}.thegreenjar.xyz`;
 
   const loadCoas = useCallback(async () => {
     setLoading(true);
@@ -126,12 +138,16 @@ export function AdminDashboard() {
 
       for (const file of validFiles) {
         const tempId = crypto.randomUUID();
-        const blob = await upload(`coas/tmp/${tempId}.pdf`, file, {
-          access: "public",
-          handleUploadUrl: "/api/coas/upload",
-          contentType: "application/pdf",
-          multipart: file.size > 5 * 1024 * 1024,
-        });
+        const blob = await upload(
+          `coas/${storeId}/tmp/${tempId}.pdf`,
+          file,
+          {
+            access: "public",
+            handleUploadUrl: "/api/coas/upload",
+            contentType: "application/pdf",
+            multipart: file.size > 5 * 1024 * 1024,
+          },
+        );
 
         const response = await fetch("/api/coas", {
           method: "POST",
@@ -207,7 +223,7 @@ export function AdminDashboard() {
       <header className="page-header">
         <div>
           <h1 id="dashboard-title">
-            The Green Jar COA&apos;s <span aria-hidden="true">🌿</span>
+            {storeName} COA&apos;s <span aria-hidden="true">🌿</span>
           </h1>
           <p>Upload, manage and organize Certificates of Analysis</p>
         </div>
@@ -232,7 +248,7 @@ export function AdminDashboard() {
             </svg>
           </span>
           <span>
-            <strong>Green Jar Admin</strong>
+            <strong>{storeName} Admin</strong>
             <small>Sign out</small>
           </span>
           <span className="chevron" aria-hidden="true">
@@ -523,12 +539,12 @@ export function AdminDashboard() {
         <div>
           <h2 id="public-title">Public COA&apos;s Page</h2>
           <p>Uploaded COA&apos;s are publicly available on your website at:</p>
-          <a href={PUBLIC_URL}>{PUBLIC_URL}</a>
+          <a href={publicUrl}>{publicUrl}</a>
         </div>
         <button
           id="view-public-button"
           type="button"
-          onClick={() => window.open(PUBLIC_URL, "_blank", "noopener,noreferrer")}
+          onClick={() => window.open(publicUrl, "_blank", "noopener,noreferrer")}
         >
           View Public Page ↗
         </button>

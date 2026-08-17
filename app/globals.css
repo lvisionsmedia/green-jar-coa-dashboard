@@ -158,6 +158,129 @@
   background: var(--white);
 }
 
+.platform-page {
+  min-height: 100vh;
+  padding: 40px 32px 64px;
+  background:
+    radial-gradient(circle at 88% 18%, rgba(149, 245, 163, 0.14), transparent 28%),
+    linear-gradient(180deg, #f7faf8, #eef5f0);
+}
+
+.platform-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  align-items: flex-start;
+  margin-bottom: 28px;
+}
+
+.platform-eyebrow {
+  margin: 0 0 6px;
+  color: var(--green-700);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.platform-header h1 {
+  margin: 0;
+  font-size: 36px;
+  letter-spacing: -0.03em;
+}
+
+.platform-header p {
+  margin: 8px 0 0;
+  color: var(--slate-500);
+}
+
+.platform-card {
+  max-width: 920px;
+  margin-bottom: 24px;
+  padding: 24px;
+  border: 1px solid var(--slate-200);
+  border-radius: 16px;
+  background: var(--white);
+  box-shadow: var(--shadow);
+}
+
+.platform-card h2 {
+  margin: 0 0 18px;
+  font-size: 20px;
+}
+
+.platform-form {
+  display: grid;
+  gap: 14px;
+  max-width: 480px;
+}
+
+.platform-hint {
+  display: block;
+  margin-top: 6px;
+  color: var(--slate-500);
+  font-size: 12px;
+}
+
+.platform-success {
+  max-width: 920px;
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border: 1px solid rgba(31, 154, 68, 0.28);
+  border-radius: 8px;
+  color: var(--green-800);
+  font-size: 14px;
+  font-weight: 700;
+  background: rgba(149, 245, 163, 0.18);
+}
+
+.platform-table-wrap {
+  overflow-x: auto;
+}
+
+.platform-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.platform-table th,
+.platform-table td {
+  padding: 12px 10px;
+  border-bottom: 1px solid var(--slate-200);
+  text-align: left;
+  font-size: 14px;
+}
+
+.platform-table th {
+  color: var(--slate-500);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.platform-landing-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.platform-secondary-link {
+  color: var(--green-800);
+  font-weight: 700;
+}
+
+@media (max-width: 720px) {
+  .platform-page {
+    padding: 24px 16px 48px;
+  }
+
+  .platform-header {
+    flex-direction: column;
+  }
+}
+
 @media (max-width: 720px) {
   .refresh-prompt {
     right: 16px;

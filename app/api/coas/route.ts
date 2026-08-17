@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { createCoa, listCoas } from "@/lib/coas";
 import { finalizeCoaUpload } from "@/lib/finalize-coa-upload";
+import { resolveRequestTenant } from "@/lib/request-tenant";
+import { resolveWritableStoreId } from "@/lib/session-access";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -14,13 +16,27 @@ type FinalizePayload = {
 
 export async function GET(request: Request) {
   try {
+    const tenant = await resolveRequestTenant(request);
+    if (!tenant.store) {
+      return NextResponse.json(
+        { error: "COA files are only available on a store subdomain." },
+        { status: 400 },
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const search = searchParams.get("search") ?? "";
     const sort = searchParams.get("sort") === "oldest" ? "oldest" : "newest";
     const page = Number(searchParams.get("page") ?? "1");
     const pageSize = Number(searchParams.get("pageSize") ?? "10");
 
-    const result = await listCoas({ search, sort, page, pageSize });
+    const result = await listCoas({
+      storeId: tenant.store.id,
+      search,
+      sort,
+      page,
+      pageSize,
+    });
     return NextResponse.json(result);
   } catch (error) {
     console.error("GET /api/coas failed:", error);
@@ -38,6 +54,16 @@ export async function POST(request: Request) {
   }
 
   try {
+    const tenant = await resolveRequestTenant(request);
+    const storeId = resolveWritableStoreId(session, tenant.store?.id ?? null);
+
+    if (!storeId) {
+      return NextResponse.json(
+        { error: "Upload is only available on a store subdomain." },
+        { status: 400 },
+      );
+    }
+
     const contentType = request.headers.get("content-type") ?? "";
 
     if (contentType.includes("application/json")) {
@@ -55,6 +81,7 @@ export async function POST(request: Request) {
       const record = await finalizeCoaUpload(
         blobUrl,
         fileName,
+        storeId,
         payload.fileSize,
       );
       await createCoa(record);

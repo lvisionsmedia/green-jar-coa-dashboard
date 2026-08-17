@@ -2,12 +2,34 @@
 
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import { parseHost } from "@/lib/tenant";
 
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("callbackUrl") ?? "/admin";
+  const [storeSlug, setStoreSlug] = useState("");
+  const [hostKind, setHostKind] = useState<"apex" | "store" | "other">("other");
+
+  useEffect(() => {
+    const host = window.location.host;
+    const context = parseHost(host);
+    if (context.kind === "store") {
+      setStoreSlug(context.slug);
+      setHostKind("store");
+    } else if (context.kind === "apex") {
+      setHostKind("apex");
+    } else {
+      setHostKind("other");
+    }
+  }, []);
+
+  const defaultCallback = useMemo(() => {
+    if (hostKind === "apex") return "/platform";
+    return "/admin";
+  }, [hostKind]);
+
+  const callbackUrl = searchParams.get("callbackUrl") ?? defaultCallback;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -21,6 +43,7 @@ export function LoginForm() {
     const result = await signIn("credentials", {
       email,
       password,
+      storeSlug: hostKind === "store" ? storeSlug : "",
       redirect: false,
     });
 
@@ -37,8 +60,14 @@ export function LoginForm() {
 
   return (
     <form className="login-card" onSubmit={handleSubmit}>
-      <h1>Admin Login</h1>
-      <p>Sign in to upload and manage COA files.</p>
+      <h1>{hostKind === "apex" ? "Platform Login" : "Admin Login"}</h1>
+      <p>
+        {hostKind === "apex"
+          ? "Sign in as platform admin to create and manage stores."
+          : storeSlug
+            ? `Sign in to manage COA files for ${storeSlug}.`
+            : "Sign in to upload and manage COA files."}
+      </p>
 
       {error ? <div className="login-error">{error}</div> : null}
 

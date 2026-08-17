@@ -3,6 +3,7 @@ import type { CoaRecord } from "@/lib/types";
 import { getSupabase } from "@/lib/supabase";
 
 type ListOptions = {
+  storeId: string;
   search?: string;
   sort?: "newest" | "oldest";
   page?: number;
@@ -11,6 +12,7 @@ type ListOptions = {
 
 type DbRow = {
   id: string;
+  store_id: string;
   file_name: string;
   blob_url: string;
   file_size: number;
@@ -20,6 +22,7 @@ type DbRow = {
 function mapRow(row: DbRow): CoaRecord {
   return {
     id: row.id,
+    storeId: row.store_id,
     fileName: row.file_name,
     blobUrl: row.blob_url,
     fileSize: row.file_size,
@@ -27,7 +30,7 @@ function mapRow(row: DbRow): CoaRecord {
   };
 }
 
-export async function listCoas(options: ListOptions = {}) {
+export async function listCoas(options: ListOptions) {
   const supabase = getSupabase();
 
   const search = options.search?.trim() ?? "";
@@ -38,9 +41,10 @@ export async function listCoas(options: ListOptions = {}) {
 
   let query = supabase
     .from("coas")
-    .select("id, file_name, blob_url, file_size, uploaded_at", {
+    .select("id, store_id, file_name, blob_url, file_size, uploaded_at", {
       count: "exact",
-    });
+    })
+    .eq("store_id", options.storeId);
 
   if (search) {
     query = query.ilike("file_name", `%${search}%`);
@@ -65,13 +69,18 @@ export async function listCoas(options: ListOptions = {}) {
   };
 }
 
-export async function getCoa(id: string) {
+export async function getCoa(id: string, storeId?: string) {
   const supabase = getSupabase();
-  const { data, error } = await supabase
+  let query = supabase
     .from("coas")
-    .select("id, file_name, blob_url, file_size, uploaded_at")
-    .eq("id", id)
-    .maybeSingle();
+    .select("id, store_id, file_name, blob_url, file_size, uploaded_at")
+    .eq("id", id);
+
+  if (storeId) {
+    query = query.eq("store_id", storeId);
+  }
+
+  const { data, error } = await query.maybeSingle();
 
   if (error) {
     throw new Error(`Failed to get COA: ${error.message}`);
@@ -84,6 +93,7 @@ export async function createCoa(record: CoaRecord) {
   const supabase = getSupabase();
   const { error } = await supabase.from("coas").insert({
     id: record.id,
+    store_id: record.storeId,
     file_name: record.fileName,
     blob_url: record.blobUrl,
     file_size: record.fileSize,
@@ -95,14 +105,18 @@ export async function createCoa(record: CoaRecord) {
   }
 }
 
-export async function deleteCoa(id: string) {
-  const coa = await getCoa(id);
+export async function deleteCoa(id: string, storeId: string) {
+  const coa = await getCoa(id, storeId);
   if (!coa) return false;
 
   await del(coa.blobUrl);
 
   const supabase = getSupabase();
-  const { error } = await supabase.from("coas").delete().eq("id", id);
+  const { error } = await supabase
+    .from("coas")
+    .delete()
+    .eq("id", id)
+    .eq("store_id", storeId);
 
   if (error) {
     throw new Error(`Failed to delete COA: ${error.message}`);
