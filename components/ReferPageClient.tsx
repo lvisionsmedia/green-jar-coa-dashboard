@@ -6,6 +6,7 @@ import {
   buildShareMessage,
   buildShareUrl,
   buildSmsHref,
+  getStoreLocations,
   REFERRAL_TERMS,
 } from "@/lib/referral-share";
 import { formatPhoneFromRefParam } from "@/lib/phone";
@@ -24,6 +25,29 @@ type SignupSuccess = {
   email: string;
   existing: boolean;
 };
+
+function StoreLocations() {
+  return (
+    <section className="refer-locations" aria-label="Store locations">
+      <p className="refer-soft-label">Visit us in store</p>
+      <ul className="refer-location-list">
+        {getStoreLocations().map((loc) => (
+          <li key={loc.city}>
+            <a
+              className="refer-location-link"
+              href={loc.mapsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <strong>{loc.city}</strong>
+              <span>{loc.line}</span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
 
 export function ReferPageClient({
   initialRef = "",
@@ -169,6 +193,7 @@ export function ReferPageClient({
               {copied === "message" ? "Message copied" : "Copy full message"}
             </button>
             <p className="refer-terms">{REFERRAL_TERMS}</p>
+            <StoreLocations />
           </section>
         </main>
       </div>
@@ -213,6 +238,7 @@ export function ReferPageClient({
               Finished
             </button>
             <p className="refer-terms">{REFERRAL_TERMS}</p>
+            <StoreLocations />
           </section>
         </main>
       </div>
@@ -353,6 +379,7 @@ export function ReferPageClient({
           </form>
 
           <p className="refer-terms">{REFERRAL_TERMS}</p>
+          <StoreLocations />
         </section>
       </main>
     </div>

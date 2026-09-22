@@ -3,7 +3,7 @@ import {
   buildSharePageUrl,
   buildShareUrl,
   getReferralBaseUrl,
-  getStoreAddressLines,
+  getStoreLocations,
 } from "@/lib/referral-share";
 
 const FROM =
@@ -22,8 +22,11 @@ function getResend() {
 }
 
 function footerHtml(unsubscribeUrl: string | null) {
-  const address = getStoreAddressLines()
-    .map((line) => `<div>${escapeHtml(line)}</div>`)
+  const locations = getStoreLocations()
+    .map(
+      (loc) =>
+        `<div style="margin:0 0 6px;"><a href="${escapeHtml(loc.mapsUrl)}" style="color:#167238;text-decoration:underline;">${escapeHtml(loc.city)} — ${escapeHtml(loc.line)}</a></div>`,
+    )
     .join("");
   const unsub = unsubscribeUrl
     ? `<p style="margin:16px 0 0;"><a href="${escapeHtml(unsubscribeUrl)}">Unsubscribe</a></p>`
@@ -31,14 +34,23 @@ function footerHtml(unsubscribeUrl: string | null) {
   return `
     <hr style="border:none;border-top:1px solid #eaecf0;margin:28px 0 16px;" />
     <div style="color:#667085;font-size:12px;line-height:1.5;">
-      ${address}
+      <div style="margin:0 0 8px;font-weight:700;color:#344054;">Visit us in store</div>
+      ${locations}
+      <div style="margin:8px 0 0;">21+ only · While supplies last</div>
       ${unsub}
     </div>
   `;
 }
 
 function footerText(unsubscribeUrl: string | null) {
-  const lines = [...getStoreAddressLines()];
+  const lines = [
+    "Visit us in store:",
+    ...getStoreLocations().flatMap((loc) => [
+      `${loc.city} — ${loc.line}`,
+      loc.mapsUrl,
+    ]),
+    "21+ only · While supplies last",
+  ];
   if (unsubscribeUrl) lines.push(`Unsubscribe: ${unsubscribeUrl}`);
   return lines.join("\n");
 }

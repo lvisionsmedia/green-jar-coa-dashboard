@@ -79,10 +79,37 @@ export function buildSmsHref(message: string): string {
   return `sms:?&body=${encodeURIComponent(message)}`;
 }
 
+export type StoreLocation = {
+  city: string;
+  line: string;
+  mapsUrl: string;
+};
+
+function mapsSearchUrl(query: string): string {
+  return `https://maps.google.com/?q=${encodeURIComponent(query)}`;
+}
+
+export function getStoreLocations(): StoreLocation[] {
+  const dallas = "5012 East Grand Ave, Dallas, TX 75223";
+  const fortWorth = "6700 Brentwood Stair Rd, Fort Worth, TX 76112";
+  return [
+    {
+      city: "Dallas",
+      line: dallas,
+      mapsUrl: mapsSearchUrl(dallas),
+    },
+    {
+      city: "Fort Worth",
+      line: fortWorth,
+      mapsUrl: mapsSearchUrl(fortWorth),
+    },
+  ];
+}
+
 export function getStoreAddressLines(): string[] {
   return [
     "The Green Jar",
-    "Come visit us in store for redemption.",
+    ...getStoreLocations().map((loc) => `${loc.city} — ${loc.line}`),
     "21+ only · While supplies last",
   ];
 }
