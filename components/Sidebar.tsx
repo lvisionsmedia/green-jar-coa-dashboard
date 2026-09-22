@@ -5,11 +5,17 @@ import { storePublicPath } from "@/lib/tenant";
 type SidebarProps = {
   storeName: string;
   storeSlug: string;
+  active?: "coas" | "referrals";
 };
 
-export function Sidebar({ storeName, storeSlug }: SidebarProps) {
+export function Sidebar({
+  storeName,
+  storeSlug,
+  active = "coas",
+}: SidebarProps) {
   const shortLabel = storeName.split(/\s+/).slice(0, 2).join(" ").toUpperCase();
   const adminPath = `${storePublicPath(storeSlug)}/admin`;
+  const referralsPath = `${adminPath}/referrals`;
   const publicPath = storePublicPath(storeSlug);
 
   return (
@@ -24,7 +30,10 @@ export function Sidebar({ storeName, storeSlug }: SidebarProps) {
       </Link>
 
       <nav className="nav-tabs">
-        <Link className="nav-tab active" href={adminPath}>
+        <Link
+          className={`nav-tab${active === "coas" ? " active" : ""}`}
+          href={adminPath}
+        >
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path
               d="M7 3h7l4 4v14H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"
@@ -41,6 +50,21 @@ export function Sidebar({ storeName, storeSlug }: SidebarProps) {
             />
           </svg>
           COA&apos;s
+        </Link>
+        <Link
+          className={`nav-tab${active === "referrals" ? " active" : ""}`}
+          href={referralsPath}
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              d="M16 8a4 4 0 1 0-3.2-6.4M8 14a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm8 2c2.7 0 5 1.6 5 3.5V21H3v-1.5C3 17.6 5.3 16 8 16h8Z"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+            />
+          </svg>
+          Referrals
         </Link>
       </nav>
 

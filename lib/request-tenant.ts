@@ -10,7 +10,7 @@ import {
 import type { StoreRecord } from "@/lib/types";
 
 export type RequestTenant = {
-  hostKind: "apex" | "store" | "unknown";
+  hostKind: "apex" | "store" | "refer" | "unknown";
   store: StoreRecord | null;
 };
 

@@ -8,6 +8,7 @@ export const RESERVED_SLUGS = new Set([
   "app",
   "login",
   "store",
+  "refer",
 ]);
 
 export type StorePathContext = {

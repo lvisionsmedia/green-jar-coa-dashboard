@@ -18,6 +18,12 @@ type StoreLookup = {
   name: string;
 };
 
+function isReferHost(host: string | null): boolean {
+  if (!host) return false;
+  const hostname = host.split(":")[0]?.toLowerCase() ?? "";
+  return hostname === "refer.localhost" || hostname.startsWith("refer.");
+}
+
 async function lookupStoreBySlug(slug: string): Promise<StoreLookup | null> {
   const url =
     process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
@@ -67,8 +73,28 @@ function sessionStoreId(authValue: {
 
 export default auth(async (request) => {
   const { pathname } = request.nextUrl;
-  const storePath = parseStorePath(pathname);
+  const host = request.headers.get("host");
   const requestHeaders = new Headers(request.headers);
+
+  // refer.thegreenjar.xyz (and refer.localhost) → rewrite to /refer{path}
+  if (
+    isReferHost(host) &&
+    !pathname.startsWith("/api/") &&
+    !pathname.startsWith("/_next/")
+  ) {
+    requestHeaders.set(HOST_KIND_HEADER, "refer");
+    const url = request.nextUrl.clone();
+    if (pathname === "/" || pathname === "") {
+      url.pathname = "/refer";
+    } else if (!pathname.startsWith("/refer")) {
+      url.pathname = `/refer${pathname}`;
+    }
+    return NextResponse.rewrite(url, {
+      request: { headers: requestHeaders },
+    });
+  }
+
+  const storePath = parseStorePath(pathname);
 
   if (storePath) {
     let store: StoreLookup | null;
