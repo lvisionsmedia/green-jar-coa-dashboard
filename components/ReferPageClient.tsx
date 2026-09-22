@@ -10,6 +10,7 @@ import {
   REFERRAL_TERMS,
 } from "@/lib/referral-share";
 import { formatPhoneFromRefParam } from "@/lib/phone";
+import type { RewardChoice } from "@/lib/types";
 
 type ReferPageClientProps = {
   initialRef?: string;
@@ -25,6 +26,13 @@ type SignupSuccess = {
   phoneDisplay: string;
   email: string;
   existing: boolean;
+};
+
+type ReserveSuccess = {
+  friendName: string;
+  rewardChoice: RewardChoice;
+  expiresAt: string | null;
+  referrerName: string;
 };
 
 function StoreLocations() {
@@ -50,6 +58,10 @@ function StoreLocations() {
   );
 }
 
+function rewardLabel(choice: RewardChoice) {
+  return choice === "gram" ? "free gram" : "free THC drink";
+}
+
 export function ReferPageClient({
   initialRef = "",
   shareMode = false,
@@ -73,6 +85,17 @@ export function ReferPageClient({
   const [error, setError] = useState("");
   const [success, setSuccess] = useState<SignupSuccess | null>(null);
   const [copied, setCopied] = useState("");
+
+  const [friendName, setFriendName] = useState("");
+  const [friendEmail, setFriendEmail] = useState("");
+  const [friendPhone, setFriendPhone] = useState("");
+  const [rewardChoice, setRewardChoice] = useState<RewardChoice>("gram");
+  const [friendAgeConfirmed, setFriendAgeConfirmed] = useState(false);
+  const [friendHoneypot, setFriendHoneypot] = useState("");
+  const [reserving, setReserving] = useState(false);
+  const [reserveSuccess, setReserveSuccess] = useState<ReserveSuccess | null>(
+    null,
+  );
 
   const refShareBundle = useMemo(() => {
     if (!referralCodeDisplay || !initialRef) return null;
@@ -148,6 +171,50 @@ export function ReferPageClient({
     }
   }
 
+  async function handleReserve(event: React.FormEvent) {
+    event.preventDefault();
+    setError("");
+    setReserving(true);
+    try {
+      const response = await fetch("/api/referrals/reserve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          referrerPhone: referralCodeDisplay || initialRef,
+          friendName,
+          friendPhone,
+          friendEmail,
+          rewardChoice,
+          ageConfirmed: friendAgeConfirmed,
+          website: friendHoneypot,
+        }),
+      });
+      const data = (await response.json()) as {
+        error?: string;
+        rewardChoice?: RewardChoice;
+        expiresAt?: string | null;
+        referrerName?: string;
+      };
+      if (!response.ok) {
+        throw new Error(data.error || "Could not reserve. Try again.");
+      }
+      setReserveSuccess({
+        friendName: friendName.trim(),
+        rewardChoice: data.rewardChoice ?? rewardChoice,
+        expiresAt: data.expiresAt ?? null,
+        referrerName: data.referrerName || referrerName || "your friend",
+      });
+    } catch (reserveError) {
+      setError(
+        reserveError instanceof Error
+          ? reserveError.message
+          : "Could not reserve. Try again.",
+      );
+    } finally {
+      setReserving(false);
+    }
+  }
+
   async function copyText(label: string, value: string) {
     try {
       await navigator.clipboard.writeText(value);
@@ -158,7 +225,41 @@ export function ReferPageClient({
     }
   }
 
-  // Friend invite: link from SMS / shared URL — redeem instructions only
+  if (!shareMode && referralCodeDisplay && reserveSuccess) {
+    return (
+      <div className="refer-shell">
+        <header className="refer-topbar">
+          <span className="refer-brand">The Green Jar</span>
+          <span className="refer-topbar-pill">You’re reserved</span>
+        </header>
+        <main className="refer-main">
+          <section className="refer-panel refer-panel-narrow">
+            <p className="refer-kicker">Come to the store</p>
+            <h1 className="refer-title">
+              Thanks, {reserveSuccess.friendName} — your{" "}
+              {rewardLabel(reserveSuccess.rewardChoice)} is waiting
+            </h1>
+            <p className="refer-subtitle">
+              Visit The Green Jar, make a purchase, and give the budtender{" "}
+              <strong>your phone number</strong>. They’ll look you up and hand
+              over your reward from {reserveSuccess.referrerName}.
+            </p>
+            {reserveSuccess.expiresAt ? (
+              <p className="refer-terms">
+                Held through{" "}
+                {new Date(reserveSuccess.expiresAt).toLocaleDateString()} · 21+
+                only
+              </p>
+            ) : (
+              <p className="refer-terms">Held for 30 days · 21+ only</p>
+            )}
+            <StoreLocations />
+          </section>
+        </main>
+      </div>
+    );
+  }
+
   if (!shareMode && referralCodeDisplay) {
     const inviter = referrerName.trim() || "A friend";
     return (
@@ -174,43 +275,150 @@ export function ReferPageClient({
               {inviter} asked you to come to The Green Jar
             </h1>
             <p className="refer-subtitle">
-              Get a free gram or THC drink when you buy something. Here’s how to
-              redeem at the register.
+              Pick your freebie, reserve it here, then visit the store and show
+              your phone at the register.
             </p>
           </section>
 
           <aside className="refer-friend-callout" aria-live="polite">
-            <p className="refer-soft-label">Referral code (their number)</p>
+            <p className="refer-soft-label">Invited by</p>
             <p className="refer-phone-display">{referralCodeDisplay}</p>
-            <p>
-              Give this number to the budtender along with your phone and email.
-            </p>
+            <p>{inviter} · their number is your referral code</p>
           </aside>
 
           <ol className="refer-steps">
             <li>
               <strong>1</strong>
-              <span>Visit a Green Jar store and make a purchase</span>
+              <span>Choose gram or THC drink &amp; reserve</span>
             </li>
             <li>
               <strong>2</strong>
-              <span>
-                At the register, give your phone, email, and this referral code
-              </span>
+              <span>Visit a Green Jar store and make a purchase</span>
             </li>
             <li>
               <strong>3</strong>
-              <span>Choose your free gram or THC drink</span>
+              <span>Give your phone to the budtender</span>
             </li>
           </ol>
 
-          <section className="refer-panel refer-panel-narrow">
-            <h2 className="refer-panel-title">What to tell the budtender</h2>
+          <section className="refer-panel">
+            <h2 className="refer-panel-title">Reserve your freebie</h2>
             <p className="refer-panel-lead">
-              Your phone number, your email, and{" "}
-              <strong>{referralCodeDisplay}</strong> as the referral code
-              {referrerName.trim() ? ` (from ${referrerName.trim()})` : ""}.
+              Takes about a minute. We’ll email a confirmation so you’re ready
+              at the counter.
             </p>
+
+            {error ? <div className="refer-error">{error}</div> : null}
+
+            <form className="refer-form" onSubmit={handleReserve}>
+              <fieldset className="refer-reward-fieldset">
+                <legend>Choose your reward</legend>
+                <div className="refer-reward-choices" role="radiogroup">
+                  <label
+                    className={
+                      rewardChoice === "gram"
+                        ? "refer-reward-choice is-selected"
+                        : "refer-reward-choice"
+                    }
+                  >
+                    <input
+                      type="radio"
+                      name="rewardChoice"
+                      value="gram"
+                      checked={rewardChoice === "gram"}
+                      onChange={() => setRewardChoice("gram")}
+                    />
+                    <span>
+                      <strong>Free gram</strong>
+                      <em>Flower · with purchase</em>
+                    </span>
+                  </label>
+                  <label
+                    className={
+                      rewardChoice === "thc_drink"
+                        ? "refer-reward-choice is-selected"
+                        : "refer-reward-choice"
+                    }
+                  >
+                    <input
+                      type="radio"
+                      name="rewardChoice"
+                      value="thc_drink"
+                      checked={rewardChoice === "thc_drink"}
+                      onChange={() => setRewardChoice("thc_drink")}
+                    />
+                    <span>
+                      <strong>THC drink</strong>
+                      <em>Beverage · with purchase</em>
+                    </span>
+                  </label>
+                </div>
+              </fieldset>
+
+              <label className="refer-field">
+                <span>Your name</span>
+                <input
+                  value={friendName}
+                  onChange={(e) => setFriendName(e.target.value)}
+                  required
+                  autoComplete="name"
+                  placeholder="Jordan Lee"
+                />
+              </label>
+              <label className="refer-field">
+                <span>Your email</span>
+                <input
+                  type="email"
+                  value={friendEmail}
+                  onChange={(e) => setFriendEmail(e.target.value)}
+                  required
+                  autoComplete="email"
+                  placeholder="you@email.com"
+                />
+              </label>
+              <label className="refer-field">
+                <span>Your phone — show this at the register</span>
+                <input
+                  type="tel"
+                  value={friendPhone}
+                  onChange={(e) => setFriendPhone(e.target.value)}
+                  required
+                  autoComplete="tel"
+                  placeholder="(214) 555-1234"
+                />
+              </label>
+
+              <label aria-hidden="true" className="refer-honeypot">
+                Website
+                <input
+                  tabIndex={-1}
+                  autoComplete="off"
+                  value={friendHoneypot}
+                  onChange={(e) => setFriendHoneypot(e.target.value)}
+                />
+              </label>
+
+              <label className="refer-check">
+                <input
+                  type="checkbox"
+                  checked={friendAgeConfirmed}
+                  onChange={(e) => setFriendAgeConfirmed(e.target.checked)}
+                  required
+                />
+                <span>I confirm I am 21 or older</span>
+              </label>
+
+              <button
+                className="refer-btn-primary"
+                type="submit"
+                disabled={reserving}
+              >
+                {reserving
+                  ? "Reserving…"
+                  : `Reserve my ${rewardLabel(rewardChoice)}`}
+              </button>
+            </form>
+
             <p className="refer-terms">{REFERRAL_TERMS}</p>
             <StoreLocations />
           </section>
@@ -219,7 +427,6 @@ export function ReferPageClient({
     );
   }
 
-  // Referrer share kit (from email CTA)
   if (shareMode && refShareBundle && referralCodeDisplay) {
     return (
       <div className="refer-shell">
@@ -232,9 +439,9 @@ export function ReferPageClient({
             <p className="refer-kicker">Ready to share</p>
             <h1 className="refer-title">Text your friends</h1>
             <p className="refer-subtitle">
-              Opens Messages with a prefilled invite. Friends redeem in store
-              using your number <strong>{referralCodeDisplay}</strong> as the
-              referral code.
+              Opens Messages with a prefilled invite. Friends open your link,
+              pick a freebie, and reserve — then redeem in store with their
+              phone. Your number is <strong>{referralCodeDisplay}</strong>.
             </p>
             <a className="refer-btn-primary" href={refShareBundle.smsHref}>
               Text your friends
@@ -285,9 +492,9 @@ export function ReferPageClient({
             </h1>
             <p className="refer-subtitle">
               We sent everything to <strong>{success.email}</strong> — including
-              a Text your friends button. Friends use your number{" "}
-              <strong>{success.phoneDisplay}</strong> as the referral code at
-              checkout.
+              a Text your friends button. Friends reserve online, then redeem in
+              store. Your number <strong>{success.phoneDisplay}</strong> is the
+              referral code.
             </p>
 
             <div className="refer-soft-card refer-success-note">
@@ -328,8 +535,8 @@ export function ReferPageClient({
             Share your number. Get a free THC drink or a gram on us.
           </h1>
           <p className="refer-subtitle">
-            Sign up here. We’ll email your share kit. Friends get a freebie with
-            purchase — you get a unique claim code when they redeem.
+            Sign up here. We’ll email your share kit. Friends reserve a freebie
+            online — you get a unique claim code when they redeem in store.
           </p>
 
           <div className="refer-offer-row" aria-label="Offer summary">
@@ -357,7 +564,7 @@ export function ReferPageClient({
           </li>
           <li>
             <strong>3</strong>
-            <span>Friends redeem in-store · you get a claim code</span>
+            <span>Friends reserve &amp; redeem · you get a claim code</span>
           </li>
         </ol>
 

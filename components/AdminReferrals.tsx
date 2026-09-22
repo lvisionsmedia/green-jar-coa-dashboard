@@ -2,12 +2,13 @@
 
 import { signOut, useSession } from "next-auth/react";
 import { useCallback, useEffect, useState } from "react";
-import type { RewardChoice } from "@/lib/types";
+import type { RewardChoice, RedemptionStatus } from "@/lib/types";
 
 type Stats = {
   referrers: number;
   redemptionsAllTime: number;
   redemptionsThisWeek: number;
+  reservedPending: number;
   pendingRewards: number;
   claimedRewards: number;
   expiredRewards: number;
@@ -19,7 +20,10 @@ type RedemptionRow = {
   friendEmail: string;
   friendPhoneE164: string;
   rewardChoice: RewardChoice;
-  redeemedAt: string;
+  status: RedemptionStatus;
+  reservedAt: string | null;
+  expiresAt: string | null;
+  redeemedAt: string | null;
   claimCode: string | null;
   rewardStatus: string | null;
   referrerName: string | null;
@@ -35,6 +39,22 @@ type PendingRow = {
   referrerName?: string;
   referrerPhoneDisplay?: string;
   referrerEmail?: string;
+};
+
+type ReservationLookup = {
+  redemption: {
+    id: string;
+    friendName: string;
+    friendEmail: string;
+    friendPhoneE164: string;
+    rewardChoice: RewardChoice;
+    expiresAt: string | null;
+  };
+  referrer: {
+    name: string;
+    phoneDisplay: string;
+    email: string;
+  };
 };
 
 type AdminReferralsProps = {
@@ -55,7 +75,16 @@ export function AdminReferrals({
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
 
-  // Redeem form
+  // Reservation lookup / complete
+  const [reservePhone, setReservePhone] = useState("");
+  const [reservation, setReservation] = useState<ReservationLookup | null>(
+    null,
+  );
+  const [completeReward, setCompleteReward] = useState<RewardChoice>("gram");
+  const [completePurchase, setCompletePurchase] = useState(false);
+  const [completing, setCompleting] = useState(false);
+
+  // Manual redeem fallback
   const [referrerPhone, setReferrerPhone] = useState("");
   const [friendName, setFriendName] = useState("");
   const [friendPhone, setFriendPhone] = useState("");
@@ -109,6 +138,69 @@ export function AdminReferrals({
   useEffect(() => {
     load();
   }, [load]);
+
+  async function lookupReservation() {
+    setError("");
+    setMessage("");
+    setReservation(null);
+    const response = await fetch(
+      `/api/referrals/complete?storeSlug=${encodeURIComponent(storeSlug)}&friendPhone=${encodeURIComponent(reservePhone)}`,
+    );
+    const data = await response.json();
+    if (!response.ok) {
+      setError(data.error || "No reservation found.");
+      return;
+    }
+    setReservation(data as ReservationLookup);
+    setCompleteReward(
+      (data as ReservationLookup).redemption.rewardChoice || "gram",
+    );
+  }
+
+  async function handleComplete(event: React.FormEvent) {
+    event.preventDefault();
+    if (!reservation) return;
+    setMessage("");
+    setError("");
+    setCompleting(true);
+    try {
+      const response = await fetch(
+        `/api/referrals/complete?storeSlug=${encodeURIComponent(storeSlug)}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            redemptionId: reservation.redemption.id,
+            rewardChoice: completeReward,
+            withPurchase: completePurchase,
+          }),
+        },
+      );
+      const data = (await response.json()) as {
+        error?: string;
+        claimCode?: string;
+        referrerEmailSent?: boolean;
+        friendEmailSent?: boolean;
+      };
+      if (!response.ok) throw new Error(data.error || "Complete failed.");
+
+      setMessage(
+        `Redeemed. Claim code ${data.claimCode} emailed to referrer${data.referrerEmailSent ? "" : " (email failed)"}. Friend recruiting email${data.friendEmailSent ? " sent" : " failed"}.`,
+      );
+      setReservation(null);
+      setReservePhone("");
+      setCompletePurchase(false);
+      await load();
+    } catch (completeError) {
+      setError(
+        completeError instanceof Error
+          ? completeError.message
+          : "Complete failed.",
+      );
+    } finally {
+      setCompleting(false);
+    }
+  }
 
   async function handleRedeem(event: React.FormEvent) {
     event.preventDefault();
@@ -273,6 +365,10 @@ export function AdminReferrals({
             <span>Referrers</span>
           </div>
           <div className="refer-stat">
+            <strong>{stats.reservedPending ?? 0}</strong>
+            <span>Reserved</span>
+          </div>
+          <div className="refer-stat">
             <strong>{stats.redemptionsThisWeek}</strong>
             <span>Redeems this week</span>
           </div>
@@ -288,76 +384,89 @@ export function AdminReferrals({
             <strong>{stats.claimedRewards}</strong>
             <span>Claimed</span>
           </div>
-          <div className="refer-stat">
-            <strong>{stats.expiredRewards}</strong>
-            <span>Expired</span>
-          </div>
         </div>
       )}
 
       <div className="refer-admin-grid">
         <section className="platform-card">
-          <h2>Redeem friend (with purchase)</h2>
-          <form className="platform-form" onSubmit={handleRedeem}>
-            <label className="login-field">
-              <span>Referrer phone</span>
-              <input
-                value={referrerPhone}
-                onChange={(e) => setReferrerPhone(e.target.value)}
-                required
-                placeholder="(214) 555-1234"
-              />
-            </label>
-            <label className="login-field">
-              <span>Friend name</span>
-              <input
-                value={friendName}
-                onChange={(e) => setFriendName(e.target.value)}
-                required
-              />
-            </label>
+          <h2>Look up reserved friend</h2>
+          <p className="platform-card-lead">
+            Friend reserved online — enter their phone at the register.
+          </p>
+          <div className="platform-form">
             <label className="login-field">
               <span>Friend phone</span>
               <input
-                value={friendPhone}
-                onChange={(e) => setFriendPhone(e.target.value)}
-                required
+                value={reservePhone}
+                onChange={(e) => setReservePhone(e.target.value)}
+                placeholder="(214) 555-1234"
               />
             </label>
-            <label className="login-field">
-              <span>Friend email</span>
-              <input
-                type="email"
-                value={friendEmail}
-                onChange={(e) => setFriendEmail(e.target.value)}
-                required
-              />
-            </label>
-            <label className="login-field">
-              <span>Friend reward</span>
-              <select
-                value={friendReward}
-                onChange={(e) =>
-                  setFriendReward(e.target.value as RewardChoice)
-                }
-              >
-                <option value="gram">Free gram</option>
-                <option value="thc_drink">THC drink</option>
-              </select>
-            </label>
-            <label className="refer-check">
-              <input
-                type="checkbox"
-                checked={withPurchase}
-                onChange={(e) => setWithPurchase(e.target.checked)}
-                required
-              />
-              <span>Friend made a purchase</span>
-            </label>
-            <button className="login-button" type="submit" disabled={redeeming}>
-              {redeeming ? "Redeeming…" : "Redeem & email codes"}
+            <button
+              type="button"
+              className="refer-ghost-btn"
+              onClick={lookupReservation}
+            >
+              Look up
             </button>
-          </form>
+          </div>
+
+          {reservation ? (
+            <form className="platform-form" onSubmit={handleComplete}>
+              <div className="refer-claim-preview">
+                <p>
+                  <strong>{reservation.redemption.friendName}</strong> ·{" "}
+                  {reservation.redemption.friendPhoneE164}
+                </p>
+                <p>
+                  {reservation.redemption.friendEmail} · wants{" "}
+                  {reservation.redemption.rewardChoice === "gram"
+                    ? "a gram"
+                    : "a THC drink"}
+                </p>
+                <p>
+                  Referred by <strong>{reservation.referrer.name}</strong> (
+                  {reservation.referrer.phoneDisplay})
+                </p>
+                {reservation.redemption.expiresAt ? (
+                  <p>
+                    Expires{" "}
+                    {new Date(
+                      reservation.redemption.expiresAt,
+                    ).toLocaleDateString()}
+                  </p>
+                ) : null}
+              </div>
+              <label className="login-field">
+                <span>Give them</span>
+                <select
+                  value={completeReward}
+                  onChange={(e) =>
+                    setCompleteReward(e.target.value as RewardChoice)
+                  }
+                >
+                  <option value="gram">Free gram</option>
+                  <option value="thc_drink">THC drink</option>
+                </select>
+              </label>
+              <label className="refer-check">
+                <input
+                  type="checkbox"
+                  checked={completePurchase}
+                  onChange={(e) => setCompletePurchase(e.target.checked)}
+                  required
+                />
+                <span>Friend made a purchase</span>
+              </label>
+              <button
+                className="login-button"
+                type="submit"
+                disabled={completing}
+              >
+                {completing ? "Completing…" : "Complete & email claim code"}
+              </button>
+            </form>
+          ) : null}
         </section>
 
         <section className="platform-card">
@@ -442,6 +551,72 @@ export function AdminReferrals({
       </div>
 
       <section className="platform-card">
+        <h2>Manual redeem (no reservation)</h2>
+        <p className="platform-card-lead">
+          Fallback if the friend didn’t reserve online — enter referrer + friend
+          details.
+        </p>
+        <form className="platform-form refer-manual-form" onSubmit={handleRedeem}>
+          <label className="login-field">
+            <span>Referrer phone</span>
+            <input
+              value={referrerPhone}
+              onChange={(e) => setReferrerPhone(e.target.value)}
+              required
+              placeholder="(214) 555-1234"
+            />
+          </label>
+          <label className="login-field">
+            <span>Friend name</span>
+            <input
+              value={friendName}
+              onChange={(e) => setFriendName(e.target.value)}
+              required
+            />
+          </label>
+          <label className="login-field">
+            <span>Friend phone</span>
+            <input
+              value={friendPhone}
+              onChange={(e) => setFriendPhone(e.target.value)}
+              required
+            />
+          </label>
+          <label className="login-field">
+            <span>Friend email</span>
+            <input
+              type="email"
+              value={friendEmail}
+              onChange={(e) => setFriendEmail(e.target.value)}
+              required
+            />
+          </label>
+          <label className="login-field">
+            <span>Friend reward</span>
+            <select
+              value={friendReward}
+              onChange={(e) => setFriendReward(e.target.value as RewardChoice)}
+            >
+              <option value="gram">Free gram</option>
+              <option value="thc_drink">THC drink</option>
+            </select>
+          </label>
+          <label className="refer-check">
+            <input
+              type="checkbox"
+              checked={withPurchase}
+              onChange={(e) => setWithPurchase(e.target.checked)}
+              required
+            />
+            <span>Friend made a purchase</span>
+          </label>
+          <button className="login-button" type="submit" disabled={redeeming}>
+            {redeeming ? "Redeeming…" : "Redeem & email codes"}
+          </button>
+        </form>
+      </section>
+
+      <section className="platform-card">
         <h2>Pending claim codes</h2>
         <div className="platform-table-wrap">
           <table className="platform-table">
@@ -475,15 +650,16 @@ export function AdminReferrals({
       </section>
 
       <section className="platform-card">
-        <h2>Recent redemptions</h2>
+        <h2>Recent activity</h2>
         <div className="platform-table-wrap">
           <table className="platform-table">
             <thead>
               <tr>
                 <th>When</th>
+                <th>Status</th>
                 <th>Referrer</th>
                 <th>Friend</th>
-                <th>Friend reward</th>
+                <th>Reward</th>
                 <th>Claim code</th>
                 <th>Emails</th>
                 <th />
@@ -492,7 +668,14 @@ export function AdminReferrals({
             <tbody>
               {redemptions.map((row) => (
                 <tr key={row.id}>
-                  <td>{new Date(row.redeemedAt).toLocaleString()}</td>
+                  <td>
+                    {row.redeemedAt
+                      ? new Date(row.redeemedAt).toLocaleString()
+                      : row.reservedAt
+                        ? new Date(row.reservedAt).toLocaleString()
+                        : "—"}
+                  </td>
+                  <td>{row.status}</td>
                   <td>
                     {row.referrerName}
                     <br />
@@ -501,13 +684,25 @@ export function AdminReferrals({
                   <td>
                     {row.friendName}
                     <br />
-                    <small>{row.friendEmail}</small>
+                    <small>
+                      {row.friendPhoneE164}
+                      <br />
+                      {row.friendEmail}
+                    </small>
                   </td>
-                  <td>{row.rewardChoice === "gram" ? "Gram" : "THC drink"}</td>
                   <td>
-                    <code>{row.claimCode}</code>
-                    <br />
-                    <small>{row.rewardStatus}</small>
+                    {row.rewardChoice === "gram" ? "Gram" : "THC drink"}
+                  </td>
+                  <td>
+                    {row.claimCode ? (
+                      <>
+                        <code>{row.claimCode}</code>
+                        <br />
+                        <small>{row.rewardStatus}</small>
+                      </>
+                    ) : (
+                      "—"
+                    )}
                   </td>
                   <td>
                     <small>
@@ -516,19 +711,21 @@ export function AdminReferrals({
                     </small>
                   </td>
                   <td>
-                    <button
-                      type="button"
-                      className="refer-ghost-btn"
-                      onClick={() => resendEmails(row.id)}
-                    >
-                      Resend
-                    </button>
+                    {row.status === "redeemed" ? (
+                      <button
+                        type="button"
+                        className="refer-ghost-btn"
+                        onClick={() => resendEmails(row.id)}
+                      >
+                        Resend
+                      </button>
+                    ) : null}
                   </td>
                 </tr>
               ))}
               {redemptions.length === 0 ? (
                 <tr>
-                  <td colSpan={7}>No redemptions yet.</td>
+                  <td colSpan={8}>No activity yet.</td>
                 </tr>
               ) : null}
             </tbody>

@@ -39,6 +39,8 @@ export type ReferrerRecord = {
   unsubscribeToken: string;
 };
 
+export type RedemptionStatus = "reserved" | "redeemed" | "expired";
+
 export type ReferralRedemptionRecord = {
   id: string;
   storeId: string;
@@ -47,12 +49,17 @@ export type ReferralRedemptionRecord = {
   friendPhoneE164: string;
   friendEmail: string;
   rewardChoice: RewardChoice;
-  redeemedBy: string;
-  redeemedAt: string;
+  status: RedemptionStatus;
+  reservedAt: string | null;
+  expiresAt: string | null;
+  redeemedBy: string | null;
+  redeemedAt: string | null;
   referrerEmailSentAt: string | null;
   friendEmailSentAt: string | null;
   claimCode?: string | null;
   rewardStatus?: "pending" | "claimed" | "expired" | null;
+  referrerName?: string | null;
+  referrerPhoneDisplay?: string | null;
 };
 
 export type ReferrerRewardRecord = {

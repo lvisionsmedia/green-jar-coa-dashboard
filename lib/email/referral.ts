@@ -137,7 +137,7 @@ export async function sendSignupConfirmationEmail(input: {
     "You’re in — tell your friends",
     `
       <p style="margin:0 0 12px;line-height:1.5;">Hey ${escapeHtml(input.name)}, thanks for joining Tell your friends.</p>
-      <p style="margin:0 0 12px;line-height:1.5;">Share your number (${escapeHtml(input.phoneDisplay)}). Friends redeem in store by giving their phone, email, and <strong>your number</strong> as the referral code — with a purchase they get a free THC drink or free gram. When they redeem, you get a unique code for yours.</p>
+      <p style="margin:0 0 12px;line-height:1.5;">Share your number (${escapeHtml(input.phoneDisplay)}). Friends open your link, pick a free gram or THC drink, and reserve online. When they redeem in store with a purchase, you get a unique code for yours.</p>
       ${ctaButton(sharePage, "Text your friends")}
       <p style="margin:0;color:#667085;font-size:13px;line-height:1.5;">Or copy this message:<br/><em>${escapeHtml(message)}</em></p>
       <p style="margin:16px 0 0;font-size:13px;">Your link: <a href="${escapeHtml(shareUrl)}">${escapeHtml(shareUrl)}</a></p>
@@ -161,6 +161,45 @@ export async function sendSignupConfirmationEmail(input: {
     html,
     text,
     unsubscribeUrl: unsub,
+  });
+}
+
+export async function sendFriendReservationEmail(input: {
+  to: string;
+  friendName: string;
+  rewardChoice: "gram" | "thc_drink";
+  referrerName: string;
+  expiresAt: string | null;
+}): Promise<SendResult> {
+  const rewardLabel =
+    input.rewardChoice === "gram" ? "free gram" : "free THC drink";
+  const expiresLine = input.expiresAt
+    ? `Your reservation is held for 30 days (through ${new Date(input.expiresAt).toLocaleDateString()}).`
+    : "Your reservation is held for 30 days.";
+
+  const html = wrapHtml(
+    "You’re reserved — come to the store",
+    `
+      <p style="margin:0 0 12px;line-height:1.5;">Hey ${escapeHtml(input.friendName)} — your ${escapeHtml(rewardLabel)} from ${escapeHtml(input.referrerName)} is reserved.</p>
+      <p style="margin:0 0 12px;line-height:1.5;">Visit The Green Jar, make a purchase, and give the budtender <strong>your phone number</strong>. They’ll look you up and hand over your ${escapeHtml(rewardLabel)}.</p>
+      <p style="margin:0;line-height:1.5;">${escapeHtml(expiresLine)}</p>
+    `,
+    null,
+  );
+
+  const text = [
+    `Hey ${input.friendName} — your ${rewardLabel} from ${input.referrerName} is reserved.`,
+    "Visit The Green Jar, make a purchase, and give the budtender your phone number.",
+    expiresLine,
+    "",
+    footerText(null),
+  ].join("\n");
+
+  return sendEmail({
+    to: input.to,
+    subject: `Your Green Jar ${rewardLabel} is reserved`,
+    html,
+    text,
   });
 }
 

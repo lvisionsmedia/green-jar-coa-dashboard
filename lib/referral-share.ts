@@ -78,7 +78,7 @@ export function buildShareMessage(
   const who = referrerName?.trim()
     ? `${referrerName.trim()} invited you`
     : "You're invited";
-  return `${who} to The Green Jar for a free THC drink or free gram with purchase. At the register, give your phone & email and use ${displayPhone} as the referral code. Details: ${shareUrl}`;
+  return `${who} to The Green Jar for a free THC drink or free gram with purchase. Open the link, pick your reward, and reserve — then show your phone at the register: ${shareUrl}`;
 }
 
 /** iOS + Android friendly sms: link with prefilled body (no recipient). */
