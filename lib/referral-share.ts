@@ -70,8 +70,15 @@ export function buildSharePageUrl(phoneDigitsOrE164: string): string {
   return `${getReferralBaseUrl()}/?share=1&ref=${ten}`;
 }
 
-export function buildShareMessage(displayPhone: string, shareUrl: string): string {
-  return `Hey! Grab a free THC drink or free gram with purchase at The Green Jar — just tell them my number ${displayPhone} at checkout. Details: ${shareUrl}`;
+export function buildShareMessage(
+  displayPhone: string,
+  shareUrl: string,
+  referrerName?: string,
+): string {
+  const who = referrerName?.trim()
+    ? `${referrerName.trim()} invited you`
+    : "You're invited";
+  return `${who} to The Green Jar for a free THC drink or free gram with purchase. At the register, give your phone & email and use ${displayPhone} as the referral code. Details: ${shareUrl}`;
 }
 
 /** iOS + Android friendly sms: link with prefilled body (no recipient). */

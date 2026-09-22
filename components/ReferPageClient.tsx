@@ -14,6 +14,7 @@ import { formatPhoneFromRefParam } from "@/lib/phone";
 type ReferPageClientProps = {
   initialRef?: string;
   shareMode?: boolean;
+  referrerName?: string;
   prefillName?: string;
   prefillEmail?: string;
   prefillPhone?: string;
@@ -52,12 +53,13 @@ function StoreLocations() {
 export function ReferPageClient({
   initialRef = "",
   shareMode = false,
+  referrerName = "",
   prefillName = "",
   prefillEmail = "",
   prefillPhone = "",
 }: ReferPageClientProps) {
   const router = useRouter();
-  const friendDisplay = useMemo(
+  const referralCodeDisplay = useMemo(
     () => (initialRef ? formatPhoneFromRefParam(initialRef) : null),
     [initialRef],
   );
@@ -73,15 +75,19 @@ export function ReferPageClient({
   const [copied, setCopied] = useState("");
 
   const refShareBundle = useMemo(() => {
-    if (!friendDisplay || !initialRef) return null;
+    if (!referralCodeDisplay || !initialRef) return null;
     const shareUrl = buildShareUrl(initialRef);
-    const message = buildShareMessage(friendDisplay, shareUrl);
+    const message = buildShareMessage(
+      referralCodeDisplay,
+      shareUrl,
+      referrerName || undefined,
+    );
     return {
       shareUrl,
       message,
       smsHref: buildSmsHref(message),
     };
-  }, [friendDisplay, initialRef]);
+  }, [referralCodeDisplay, initialRef, referrerName]);
 
   function resetToSignup() {
     setSuccess(null);
@@ -152,8 +158,69 @@ export function ReferPageClient({
     }
   }
 
-  // Email deep-link: Text a friend from phone (not the register iPad)
-  if (shareMode && refShareBundle && friendDisplay) {
+  // Friend invite: link from SMS / shared URL — redeem instructions only
+  if (!shareMode && referralCodeDisplay) {
+    const inviter = referrerName.trim() || "A friend";
+    return (
+      <div className="refer-shell">
+        <header className="refer-topbar">
+          <span className="refer-brand">The Green Jar</span>
+          <span className="refer-topbar-pill">You’re invited</span>
+        </header>
+        <main className="refer-main">
+          <section className="refer-hero">
+            <p className="refer-kicker">Free with purchase</p>
+            <h1 className="refer-title">
+              {inviter} asked you to come to The Green Jar
+            </h1>
+            <p className="refer-subtitle">
+              Get a free gram or THC drink when you buy something. Here’s how to
+              redeem at the register.
+            </p>
+          </section>
+
+          <aside className="refer-friend-callout" aria-live="polite">
+            <p className="refer-soft-label">Referral code (their number)</p>
+            <p className="refer-phone-display">{referralCodeDisplay}</p>
+            <p>
+              Give this number to the budtender along with your phone and email.
+            </p>
+          </aside>
+
+          <ol className="refer-steps">
+            <li>
+              <strong>1</strong>
+              <span>Visit a Green Jar store and make a purchase</span>
+            </li>
+            <li>
+              <strong>2</strong>
+              <span>
+                At the register, give your phone, email, and this referral code
+              </span>
+            </li>
+            <li>
+              <strong>3</strong>
+              <span>Choose your free gram or THC drink</span>
+            </li>
+          </ol>
+
+          <section className="refer-panel refer-panel-narrow">
+            <h2 className="refer-panel-title">What to tell the budtender</h2>
+            <p className="refer-panel-lead">
+              Your phone number, your email, and{" "}
+              <strong>{referralCodeDisplay}</strong> as the referral code
+              {referrerName.trim() ? ` (from ${referrerName.trim()})` : ""}.
+            </p>
+            <p className="refer-terms">{REFERRAL_TERMS}</p>
+            <StoreLocations />
+          </section>
+        </main>
+      </div>
+    );
+  }
+
+  // Referrer share kit (from email CTA)
+  if (shareMode && refShareBundle && referralCodeDisplay) {
     return (
       <div className="refer-shell">
         <header className="refer-topbar">
@@ -163,10 +230,11 @@ export function ReferPageClient({
         <main className="refer-main">
           <section className="refer-panel refer-panel-narrow">
             <p className="refer-kicker">Ready to share</p>
-            <h1 className="refer-title">Text your friends your number</h1>
+            <h1 className="refer-title">Text your friends</h1>
             <p className="refer-subtitle">
-              Opens Messages with a prefilled invite. Friends tell the budtender{" "}
-              <strong>{friendDisplay}</strong> at checkout.
+              Opens Messages with a prefilled invite. Friends redeem in store
+              using your number <strong>{referralCodeDisplay}</strong> as the
+              referral code.
             </p>
             <a className="refer-btn-primary" href={refShareBundle.smsHref}>
               Text your friends
@@ -218,7 +286,8 @@ export function ReferPageClient({
             <p className="refer-subtitle">
               We sent everything to <strong>{success.email}</strong> — including
               a Text your friends button. Friends use your number{" "}
-              <strong>{success.phoneDisplay}</strong> at checkout.
+              <strong>{success.phoneDisplay}</strong> as the referral code at
+              checkout.
             </p>
 
             <div className="refer-soft-card refer-success-note">
@@ -276,17 +345,6 @@ export function ReferPageClient({
             </div>
           </div>
         </section>
-
-        {friendDisplay ? (
-          <aside className="refer-friend-callout" aria-live="polite">
-            <p className="refer-soft-label">Show this at checkout</p>
-            <p className="refer-phone-display">{friendDisplay}</p>
-            <p>
-              Free gram or THC drink with purchase. Want your own rewards? Sign
-              up below — we’ll email <em>your</em> share kit.
-            </p>
-          </aside>
-        ) : null}
 
         <ol className="refer-steps">
           <li>
@@ -346,10 +404,7 @@ export function ReferPageClient({
               />
             </label>
 
-            <label
-              aria-hidden="true"
-              className="refer-honeypot"
-            >
+            <label aria-hidden="true" className="refer-honeypot">
               Website
               <input
                 tabIndex={-1}

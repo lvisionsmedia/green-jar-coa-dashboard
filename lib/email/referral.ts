@@ -131,13 +131,13 @@ export async function sendSignupConfirmationEmail(input: {
   const unsub = unsubscribeUrlFor(input.unsubscribeToken);
   const shareUrl = buildShareUrl(input.phoneE164);
   const sharePage = buildSharePageUrl(input.phoneE164);
-  const message = buildShareMessage(input.phoneDisplay, shareUrl);
+  const message = buildShareMessage(input.phoneDisplay, shareUrl, input.name);
 
   const html = wrapHtml(
     "You’re in — tell your friends",
     `
       <p style="margin:0 0 12px;line-height:1.5;">Hey ${escapeHtml(input.name)}, thanks for joining Tell your friends.</p>
-      <p style="margin:0 0 12px;line-height:1.5;">Friends use <strong>your number</strong> (${escapeHtml(input.phoneDisplay)}) at checkout for a free THC drink or free gram <em>with purchase</em>. When they redeem, you get a unique code for yours.</p>
+      <p style="margin:0 0 12px;line-height:1.5;">Share your number (${escapeHtml(input.phoneDisplay)}). Friends redeem in store by giving their phone, email, and <strong>your number</strong> as the referral code — with a purchase they get a free THC drink or free gram. When they redeem, you get a unique code for yours.</p>
       ${ctaButton(sharePage, "Text your friends")}
       <p style="margin:0;color:#667085;font-size:13px;line-height:1.5;">Or copy this message:<br/><em>${escapeHtml(message)}</em></p>
       <p style="margin:16px 0 0;font-size:13px;">Your link: <a href="${escapeHtml(shareUrl)}">${escapeHtml(shareUrl)}</a></p>
@@ -212,18 +212,18 @@ export async function sendBecomeReferrerEmail(input: {
   const signupUrl = params.toString() ? `${root}/?${params}` : `${root}/`;
 
   const html = wrapHtml(
-    "Want your own rewards?",
+    "Tell your friends next",
     `
-      <p style="margin:0 0 12px;line-height:1.5;">Thanks for shopping The Green Jar — enjoy your free gram or THC drink.</p>
-      <p style="margin:0 0 12px;line-height:1.5;">Want yours next? Sign up and share <strong>your</strong> number. When a friend redeems, you get a unique reward code.</p>
-      ${ctaButton(signupUrl, "Become a referrer")}
+      <p style="margin:0 0 12px;line-height:1.5;">Hey ${escapeHtml(input.friendName)} — thanks for redeeming at The Green Jar. Enjoy your free gram or THC drink.</p>
+      <p style="margin:0 0 12px;line-height:1.5;">Want the same deal for <strong>your</strong> friends? Sign up, share your number, and when they redeem with a purchase you get a unique reward code.</p>
+      ${ctaButton(signupUrl, "Tell your friends")}
     `,
     null,
   );
 
   const text = [
-    `Hey ${input.friendName}, thanks for shopping The Green Jar.`,
-    "Want yours next? Sign up and share your number:",
+    `Hey ${input.friendName} — thanks for redeeming at The Green Jar.`,
+    "Want the same deal for your friends? Sign up and share your number:",
     signupUrl,
     "",
     footerText(null),
@@ -231,7 +231,7 @@ export async function sendBecomeReferrerEmail(input: {
 
   return sendEmail({
     to: input.to,
-    subject: "Tell your friends at The Green Jar — earn your own reward",
+    subject: "You redeemed — now tell your friends",
     html,
     text,
   });
@@ -250,7 +250,7 @@ export async function sendWeeklyProgressEmail(input: {
   const unsub = unsubscribeUrlFor(input.unsubscribeToken);
   const shareUrl = buildShareUrl(input.phoneE164);
   const sharePage = buildSharePageUrl(input.phoneE164);
-  const message = buildShareMessage(input.phoneDisplay, shareUrl);
+  const message = buildShareMessage(input.phoneDisplay, shareUrl, input.name);
   const hasStats = input.friendsRedeemed > 0;
 
   const statsBlock = hasStats
