@@ -1,11 +1,55 @@
+const CANONICAL_REFERRAL_URL = "https://refer.thegreenjar.xyz";
+
+function looksLocal(url: string): boolean {
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    return (
+      host === "localhost" ||
+      host === "127.0.0.1" ||
+      host.endsWith(".localhost")
+    );
+  } catch {
+    return /localhost|127\.0\.0\.1/i.test(url);
+  }
+}
+
+function isDeployedRuntime(): boolean {
+  return (
+    process.env.VERCEL_ENV === "production" ||
+    process.env.VERCEL_ENV === "preview" ||
+    process.env.VERCEL === "1" ||
+    process.env.NODE_ENV === "production"
+  );
+}
+
+/**
+ * Public origin for referral share links (SMS, email, copy).
+ * Never returns localhost on a deployed build — that was leaking into
+ * "Text a friend" messages when NEXT_PUBLIC_* pointed at local or was unset.
+ */
 export function getReferralBaseUrl(): string {
-  const explicit = process.env.NEXT_PUBLIC_REFERRAL_URL?.replace(/\/$/, "");
-  if (explicit) return explicit;
+  const candidates = [
+    process.env.NEXT_PUBLIC_REFERRAL_URL,
+    process.env.REFERRAL_BASE_URL,
+  ];
 
-  const site = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "");
-  if (site) return `${site}/refer`;
+  for (const raw of candidates) {
+    const value = raw?.trim().replace(/\/$/, "");
+    if (!value) continue;
+    if (looksLocal(value) && isDeployedRuntime()) continue;
+    return value;
+  }
 
-  return "https://refer.thegreenjar.xyz";
+  const site = process.env.NEXT_PUBLIC_SITE_URL?.trim().replace(/\/$/, "");
+  if (site && !(looksLocal(site) && isDeployedRuntime())) {
+    return `${site}/refer`;
+  }
+
+  if (isDeployedRuntime()) {
+    return CANONICAL_REFERRAL_URL;
+  }
+
+  return site ? `${site}/refer` : "http://localhost:3000/refer";
 }
 
 export function getReferralStoreSlug(): string {
