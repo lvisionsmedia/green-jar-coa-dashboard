@@ -532,7 +532,9 @@ export function ReferPageClient({
         <section className="refer-hero">
           <p className="refer-kicker">Tell your friends</p>
           <h1 className="refer-title">
-            Share your number. Get a free THC drink or a gram on us.
+            Share us with your friends
+            <br />
+            Get a free gram or THC drink. ON US!
           </h1>
           <p className="refer-subtitle">
             Sign up here. We’ll email your share kit. Friends reserve a freebie
