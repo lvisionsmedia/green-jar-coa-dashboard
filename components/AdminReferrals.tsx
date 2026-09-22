@@ -248,7 +248,7 @@ export function AdminReferrals({
       <header className="topbar">
         <div>
           <p className="eyebrow">Referrals</p>
-          <h1>{storeName} — Tell a Friend</h1>
+          <h1>{storeName} — Tell your friends</h1>
         </div>
         <div className="topbar-actions">
           <button

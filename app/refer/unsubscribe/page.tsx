@@ -4,7 +4,7 @@ import { getReferralBaseUrl } from "@/lib/referral-share";
 import { optOutReferrer } from "@/lib/referrals";
 
 export const metadata: Metadata = {
-  title: "Unsubscribe | Tell a Friend",
+  title: "Unsubscribe | Tell your friends",
 };
 
 type UnsubscribePageProps = {
@@ -37,7 +37,7 @@ export default async function UnsubscribePage({
       </header>
       <main className="refer-main">
         <section className="refer-panel refer-panel-narrow">
-          <p className="refer-kicker">Tell a Friend</p>
+          <p className="refer-kicker">Tell your friends</p>
           <h1 className="refer-title">
             {missing
               ? "Missing unsubscribe link"
@@ -49,11 +49,11 @@ export default async function UnsubscribePage({
             {missing
               ? "Open the unsubscribe link from your email."
               : success
-                ? "You won’t receive weekly Tell a Friend emails anymore. Transactional reward codes will still be sent if a friend redeems."
+                ? "You won’t receive weekly Tell your friends emails anymore. Transactional reward codes will still be sent if a friend redeems."
                 : "We couldn’t find that unsubscribe token."}
           </p>
           <Link className="refer-btn-primary" href={getReferralBaseUrl()}>
-            Back to Tell a Friend
+            Back to Tell your friends
           </Link>
         </section>
       </main>

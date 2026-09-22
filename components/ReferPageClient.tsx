@@ -134,18 +134,18 @@ export function ReferPageClient({
       <div className="refer-shell">
         <header className="refer-topbar">
           <span className="refer-brand">The Green Jar</span>
-          <span className="refer-topbar-pill">Tell a Friend</span>
+          <span className="refer-topbar-pill">Tell your friends</span>
         </header>
         <main className="refer-main">
           <section className="refer-panel refer-panel-narrow">
             <p className="refer-kicker">Ready to share</p>
-            <h1 className="refer-title">Text a friend your number</h1>
+            <h1 className="refer-title">Text your friends your number</h1>
             <p className="refer-subtitle">
               Opens Messages with a prefilled invite. Friends tell the budtender{" "}
               <strong>{friendDisplay}</strong> at checkout.
             </p>
             <a className="refer-btn-primary" href={refShareBundle.smsHref}>
-              Text a friend
+              Text your friends
             </a>
             <div className="refer-link-row">
               <input
@@ -192,7 +192,7 @@ export function ReferPageClient({
             </h1>
             <p className="refer-subtitle">
               We sent everything to <strong>{success.email}</strong> — including
-              a Text a friend button. Friends use your number{" "}
+              a Text your friends button. Friends use your number{" "}
               <strong>{success.phoneDisplay}</strong> at checkout.
             </p>
 
@@ -228,7 +228,7 @@ export function ReferPageClient({
 
       <main className="refer-main">
         <section className="refer-hero">
-          <p className="refer-kicker">Tell a Friend</p>
+          <p className="refer-kicker">Tell your friends</p>
           <h1 className="refer-title">
             Share your number. Get a free THC drink or a gram on us.
           </h1>

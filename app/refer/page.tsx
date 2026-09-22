@@ -2,9 +2,22 @@ import type { Metadata } from "next";
 import { ReferPageClient } from "@/components/ReferPageClient";
 
 export const metadata: Metadata = {
-  title: "Tell a Friend | The Green Jar",
+  title: "Tell your friends | The Green Jar",
   description:
-    "Tell a friend and get a free THC drink or a gram on us at The Green Jar.",
+    "Tell your friends and get a free THC drink or a gram on us at The Green Jar.",
+  openGraph: {
+    title: "Tell your friends",
+    description:
+      "Share your number. Get a free THC drink or a gram on us at The Green Jar.",
+    siteName: "The Green Jar",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Tell your friends",
+    description:
+      "Share your number. Get a free THC drink or a gram on us at The Green Jar.",
+  },
 };
 
 type ReferPageProps = {

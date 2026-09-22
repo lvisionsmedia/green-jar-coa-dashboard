@@ -8,7 +8,7 @@ import {
 
 const FROM =
   process.env.REFERRAL_FROM_EMAIL?.trim() ||
-  "Tell a Friend <rewards@refer.thegreenjar.xyz>";
+  "Tell your friends <rewards@refer.thegreenjar.xyz>";
 
 function getResend() {
   const key = process.env.RESEND_API_KEY;
@@ -122,11 +122,11 @@ export async function sendSignupConfirmationEmail(input: {
   const message = buildShareMessage(input.phoneDisplay, shareUrl);
 
   const html = wrapHtml(
-    "You’re in — tell a friend",
+    "You’re in — tell your friends",
     `
-      <p style="margin:0 0 12px;line-height:1.5;">Hey ${escapeHtml(input.name)}, thanks for joining Tell a Friend.</p>
+      <p style="margin:0 0 12px;line-height:1.5;">Hey ${escapeHtml(input.name)}, thanks for joining Tell your friends.</p>
       <p style="margin:0 0 12px;line-height:1.5;">Friends use <strong>your number</strong> (${escapeHtml(input.phoneDisplay)}) at checkout for a free THC drink or free gram <em>with purchase</em>. When they redeem, you get a unique code for yours.</p>
-      ${ctaButton(sharePage, "Text a friend")}
+      ${ctaButton(sharePage, "Text your friends")}
       <p style="margin:0;color:#667085;font-size:13px;line-height:1.5;">Or copy this message:<br/><em>${escapeHtml(message)}</em></p>
       <p style="margin:16px 0 0;font-size:13px;">Your link: <a href="${escapeHtml(shareUrl)}">${escapeHtml(shareUrl)}</a></p>
     `,
@@ -134,9 +134,9 @@ export async function sendSignupConfirmationEmail(input: {
   );
 
   const text = [
-    `Hey ${input.name}, thanks for joining Tell a Friend.`,
+    `Hey ${input.name}, thanks for joining Tell your friends.`,
     `Friends use your number (${input.phoneDisplay}) at checkout.`,
-    `Text a friend: ${sharePage}`,
+    `Text your friends: ${sharePage}`,
     message,
     `Your link: ${shareUrl}`,
     "",
@@ -145,7 +145,7 @@ export async function sendSignupConfirmationEmail(input: {
 
   return sendEmail({
     to: input.to,
-    subject: "Tell a Friend — your share link is ready",
+    subject: "Tell your friends — your share link is ready",
     html,
     text,
     unsubscribeUrl: unsub,
@@ -219,7 +219,7 @@ export async function sendBecomeReferrerEmail(input: {
 
   return sendEmail({
     to: input.to,
-    subject: "Tell a Friend at The Green Jar — earn your own reward",
+    subject: "Tell your friends at The Green Jar — earn your own reward",
     html,
     text,
   });
@@ -246,12 +246,12 @@ export async function sendWeeklyProgressEmail(input: {
     : `<p style="margin:0 0 16px;line-height:1.5;">You haven’t had a friend redeem yet — text a few people today and get the ball rolling.</p>`;
 
   const html = wrapHtml(
-    "Your Tell a Friend update",
+    "Your weekly update",
     `
-      <p style="margin:0 0 12px;line-height:1.5;">Hey ${escapeHtml(input.name)} — here’s your weekly update.</p>
+      <p style="margin:0 0 12px;line-height:1.5;">Hey ${escapeHtml(input.name)} — here’s your Tell your friends update.</p>
       ${statsBlock}
       <p style="margin:0 0 12px;line-height:1.5;">Friends get a free gram or THC drink <em>with purchase</em> when they use your number. You get a unique code for a free gram or THC drink when they do.</p>
-      ${ctaButton(sharePage, "Text a friend")}
+      ${ctaButton(sharePage, "Text your friends")}
       <p style="margin:0;color:#667085;font-size:13px;line-height:1.5;">${escapeHtml(message)}</p>
       <p style="margin:16px 0 0;font-size:13px;">Your link: <a href="${escapeHtml(shareUrl)}">${escapeHtml(shareUrl)}</a></p>
     `,
@@ -259,11 +259,11 @@ export async function sendWeeklyProgressEmail(input: {
   );
 
   const text = [
-    `Hey ${input.name} — here’s your Tell a Friend update.`,
+    `Hey ${input.name} — here’s your Tell your friends update.`,
     hasStats
       ? `${input.friendsRedeemed} friends redeemed · ${input.pendingCodes} codes waiting · ${input.claimedRewards} claimed.`
       : "No friend redemptions yet — text a few people today.",
-    `Text a friend: ${sharePage}`,
+    `Text your friends: ${sharePage}`,
     message,
     `Your link: ${shareUrl}`,
     "",
@@ -272,7 +272,7 @@ export async function sendWeeklyProgressEmail(input: {
 
   return sendEmail({
     to: input.to,
-    subject: "Your weekly Tell a Friend update",
+    subject: "Your weekly Tell your friends update",
     html,
     text,
     unsubscribeUrl: unsub,
