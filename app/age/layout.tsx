@@ -8,6 +8,19 @@ export const metadata: Metadata = {
     "Door check-in age checker for The Green Jar. Birth dates stay on this device.",
   applicationName: "Green Jar 21+",
   manifest: "/age/manifest.webmanifest",
+  openGraph: {
+    title: "21+ Age Checker",
+    description:
+      "Door check-in for The Green Jar. Birth dates stay on this device.",
+    siteName: "The Green Jar",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "21+ Age Checker | The Green Jar",
+    description:
+      "Door check-in for The Green Jar. Birth dates stay on this device.",
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
