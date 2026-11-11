@@ -7,11 +7,25 @@ import {
   clearAgeHistory,
   formatBirthDisplay,
   formatCheckedAt,
+  getClerkDeviceId,
+  getClerkDeviceName,
   loadAgeHistory,
+  setClerkDeviceName,
   type AgeHistoryEntry,
 } from "@/lib/age-history";
 
 type Tab = "check" | "history";
+
+type PendingCheck = {
+  logKey: string;
+  checkedAt: string;
+  status: "ok" | "under";
+  age: number;
+  idNumber: string;
+  birthDisplay: string;
+  message: string;
+  turns21OnLabel: string | null;
+};
 
 function digitsOnly(value: string, max: number): string {
   return value.replace(/\D/g, "").slice(0, max);
@@ -42,11 +56,17 @@ export function AgeCheckerClient() {
   const [day, setDay] = useState("");
   const [year, setYear] = useState("");
   const [history, setHistory] = useState<AgeHistoryEntry[]>([]);
+  const [deviceId, setDeviceId] = useState("");
+  const [deviceName, setDeviceName] = useState<string | null>(null);
+  const [nameDraft, setNameDraft] = useState("");
+  const [showNameModal, setShowNameModal] = useState(false);
+  const [pendingCheck, setPendingCheck] = useState<PendingCheck | null>(null);
 
   const idRef = useRef<HTMLInputElement>(null);
   const monthRef = useRef<HTMLInputElement>(null);
   const dayRef = useRef<HTMLInputElement>(null);
   const yearRef = useRef<HTMLInputElement>(null);
+  const nameRef = useRef<HTMLInputElement>(null);
   const lastVibrateKey = useRef<string>("");
   const lastLoggedKey = useRef<string>("");
 
@@ -94,14 +114,21 @@ export function AgeCheckerClient() {
     idReady && (ageResult.status === "ok" || ageResult.status === "under");
 
   useEffect(() => {
+    setDeviceId(getClerkDeviceId());
+    setDeviceName(getClerkDeviceName());
     setHistory(loadAgeHistory());
   }, []);
 
   useEffect(() => {
-    if (tab === "check") {
+    if (tab === "check" && !showNameModal) {
       requestAnimationFrame(() => idRef.current?.focus());
     }
-  }, [tab]);
+  }, [tab, showNameModal]);
+
+  useEffect(() => {
+    if (!showNameModal) return;
+    requestAnimationFrame(() => nameRef.current?.focus());
+  }, [showNameModal]);
 
   useEffect(() => {
     if (!canComplete || ageResult.status !== "under") {
@@ -119,14 +146,15 @@ export function AgeCheckerClient() {
   useEffect(() => {
     if (!canComplete || ageResult.age === null) return;
     if (ageResult.status !== "ok" && ageResult.status !== "under") return;
+    if (showNameModal) return;
 
     const idTrim = idNumber.trim();
     const birthKey = formatBirthDisplay(month, day, year);
     const logKey = `${idTrim}|${birthKey}`;
     if (lastLoggedKey.current === logKey) return;
-    lastLoggedKey.current = logKey;
 
-    const next = appendAgeHistory({
+    const pending: PendingCheck = {
+      logKey,
       checkedAt: new Date().toISOString(),
       status: ageResult.status,
       age: ageResult.age,
@@ -134,9 +162,65 @@ export function AgeCheckerClient() {
       birthDisplay: birthKey,
       message: ageResult.message,
       turns21OnLabel: ageResult.turns21OnLabel,
+    };
+
+    const existingName = deviceName ?? getClerkDeviceName();
+    if (!existingName) {
+      setPendingCheck(pending);
+      setNameDraft("");
+      setShowNameModal(true);
+      return;
+    }
+
+    lastLoggedKey.current = logKey;
+    const next = appendAgeHistory({
+      checkedAt: pending.checkedAt,
+      status: pending.status,
+      age: pending.age,
+      idNumber: pending.idNumber,
+      birthDisplay: pending.birthDisplay,
+      message: pending.message,
+      turns21OnLabel: pending.turns21OnLabel,
+      deviceId: deviceId || getClerkDeviceId(),
+      deviceName: existingName,
     });
     setHistory(next);
-  }, [canComplete, ageResult, idNumber, month, day, year]);
+  }, [
+    canComplete,
+    ageResult,
+    idNumber,
+    month,
+    day,
+    year,
+    deviceId,
+    deviceName,
+    showNameModal,
+  ]);
+
+  function saveDeviceNameAndLog() {
+    const trimmed = nameDraft.trim();
+    if (!trimmed || !pendingCheck) return;
+
+    const savedName = setClerkDeviceName(trimmed);
+    setDeviceName(savedName);
+    lastLoggedKey.current = pendingCheck.logKey;
+
+    const next = appendAgeHistory({
+      checkedAt: pendingCheck.checkedAt,
+      status: pendingCheck.status,
+      age: pendingCheck.age,
+      idNumber: pendingCheck.idNumber,
+      birthDisplay: pendingCheck.birthDisplay,
+      message: pendingCheck.message,
+      turns21OnLabel: pendingCheck.turns21OnLabel,
+      deviceId: deviceId || getClerkDeviceId(),
+      deviceName: savedName,
+    });
+    setHistory(next);
+    setPendingCheck(null);
+    setShowNameModal(false);
+    setNameDraft("");
+  }
 
   function clearAll() {
     setIdNumber("");
@@ -161,9 +245,6 @@ export function AgeCheckerClient() {
         <h1 className="mt-2 text-3xl font-black tracking-tight text-age-text sm:text-4xl">
           21+ Age Checker
         </h1>
-        <p className="mt-2 text-base text-age-muted">
-          Door check-in · stays on this device
-        </p>
       </header>
 
       <div
@@ -308,19 +389,21 @@ export function AgeCheckerClient() {
             </label>
           </div>
 
-          <section
-            aria-live="polite"
-            className={`rounded-3xl px-5 py-8 text-center text-white shadow-lg ${panelClasses(display.status)}`}
-          >
-            <p className="text-4xl leading-tight font-black tracking-tight sm:text-5xl">
-              {display.message}
-            </p>
-            {display.status === "under" && display.turns21OnLabel ? (
-              <p className="mt-4 text-xl font-semibold text-white/95 sm:text-2xl">
-                Turns 21 on {display.turns21OnLabel}
+          {display.status !== "incomplete" ? (
+            <section
+              aria-live="polite"
+              className={`rounded-3xl px-5 py-8 text-center text-white shadow-lg ${panelClasses(display.status)}`}
+            >
+              <p className="text-4xl leading-tight font-black tracking-tight sm:text-5xl">
+                {display.message}
               </p>
-            ) : null}
-          </section>
+              {display.status === "under" && display.turns21OnLabel ? (
+                <p className="mt-4 text-xl font-semibold text-white/95 sm:text-2xl">
+                  Turns 21 on {display.turns21OnLabel}
+                </p>
+              ) : null}
+            </section>
+          ) : null}
 
           <button
             type="button"
@@ -374,6 +457,9 @@ export function AgeCheckerClient() {
                       <p className="mt-1 text-base text-age-muted">
                         DOB {entry.birthDisplay}
                       </p>
+                      <p className="mt-1 text-sm text-age-muted">
+                        {entry.deviceName}
+                      </p>
                       {entry.status === "under" && entry.turns21OnLabel ? (
                         <p className="mt-1 text-sm text-age-muted">
                           Turns 21 on {entry.turns21OnLabel}
@@ -395,7 +481,60 @@ export function AgeCheckerClient() {
 
       <p className="text-center text-sm text-age-muted">
         Offline OK · history stays on this phone · nothing uploaded
+        {deviceName ? (
+          <>
+            <br />
+            {deviceName}
+          </>
+        ) : null}
       </p>
+
+      {showNameModal ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="device-name-title"
+        >
+          <div className="w-full max-w-md rounded-3xl border-2 border-age-border bg-[#102016] p-6 shadow-2xl">
+            <h2
+              id="device-name-title"
+              className="text-center text-2xl font-black text-age-text"
+            >
+              Name this device
+            </h2>
+            <p className="mt-2 text-center text-sm text-age-muted">
+              e.g. Front door · Register 2
+            </p>
+            <input
+              ref={nameRef}
+              type="text"
+              autoComplete="off"
+              enterKeyHint="done"
+              maxLength={40}
+              aria-label="Device name"
+              placeholder="Front door"
+              value={nameDraft}
+              className="mt-5 h-14 w-full rounded-2xl border-2 border-age-border bg-age-panel px-4 text-center text-xl font-black text-age-text outline-none focus:border-[#78c51c]"
+              onChange={(e) => setNameDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  saveDeviceNameAndLog();
+                }
+              }}
+            />
+            <button
+              type="button"
+              disabled={nameDraft.trim().length === 0}
+              onClick={saveDeviceNameAndLog}
+              className="mt-4 h-14 w-full rounded-2xl bg-[#167238] text-xl font-black text-white disabled:opacity-40"
+            >
+              Save
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
