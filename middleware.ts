@@ -24,6 +24,12 @@ function isReferHost(host: string | null): boolean {
   return hostname === "refer.localhost" || hostname.startsWith("refer.");
 }
 
+function isAgeHost(host: string | null): boolean {
+  if (!host) return false;
+  const hostname = host.split(":")[0]?.toLowerCase() ?? "";
+  return hostname === "age.localhost" || hostname.startsWith("age.");
+}
+
 async function lookupStoreBySlug(slug: string): Promise<StoreLookup | null> {
   const url =
     process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
@@ -88,6 +94,24 @@ export default auth(async (request) => {
       url.pathname = "/refer";
     } else if (!pathname.startsWith("/refer")) {
       url.pathname = `/refer${pathname}`;
+    }
+    return NextResponse.rewrite(url, {
+      request: { headers: requestHeaders },
+    });
+  }
+
+  // age.thegreenjar.xyz (and age.localhost) → rewrite to /age{path}
+  if (
+    isAgeHost(host) &&
+    !pathname.startsWith("/api/") &&
+    !pathname.startsWith("/_next/")
+  ) {
+    requestHeaders.set(HOST_KIND_HEADER, "age");
+    const url = request.nextUrl.clone();
+    if (pathname === "/" || pathname === "") {
+      url.pathname = "/age";
+    } else if (!pathname.startsWith("/age")) {
+      url.pathname = `/age${pathname}`;
     }
     return NextResponse.rewrite(url, {
       request: { headers: requestHeaders },

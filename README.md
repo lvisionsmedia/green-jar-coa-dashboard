@@ -2,7 +2,7 @@
 
 Multi-tenant COA library. Each store gets its own path under `/store/{slug}`, public list, and admin login. Platform admins manage stores from `/platform`.
 
-Includes the **Tell a Friend** referral program on `refer.thegreenjar.xyz` (also available at `/refer`).
+Includes the **Tell a Friend** referral program on `refer.thegreenjar.xyz` (also available at `/refer`) and the **21+ Age Checker** PWA on `age.thegreenjar.xyz` (also at `/age`).
 
 ## URLs
 
@@ -17,6 +17,8 @@ Includes the **Tell a Friend** referral program on `refer.thegreenjar.xyz` (also
 | `thegreenjar.xyz/store/{slug}/login` | Store admin login |
 | `refer.thegreenjar.xyz` | Public Tell a Friend signup / share |
 | `thegreenjar.xyz/refer` | Same referral UI (apex fallback) |
+| `age.thegreenjar.xyz` | 21+ Age Checker (door check-in PWA) |
+| `thegreenjar.xyz/age` | Same age checker (apex fallback) |
 
 ## Local development
 
@@ -56,6 +58,12 @@ npm run db:init
 npm run dev
 ```
 
+Run unit tests (age checker logic):
+
+```bash
+npm test
+```
+
 Local URLs:
 
 - Platform: http://localhost:3000
@@ -64,6 +72,8 @@ Local URLs:
 - Referrals admin: http://localhost:3000/store/green-jar/admin/referrals
 - Tell a Friend: http://localhost:3000/refer
 - Refer host rewrite: http://refer.localhost:3000
+- 21+ Age Checker: http://localhost:3000/age
+- Age host rewrite: http://age.localhost:3000
 
 ## Tell a Friend (how it works)
 
@@ -105,10 +115,12 @@ Local URLs:
    - `thegreenjar.xyz`
    - `www.thegreenjar.xyz` (optional)
    - `refer.thegreenjar.xyz`
+   - `age.thegreenjar.xyz`
 7. Update DNS at your registrar:
    - Apex `thegreenjar.xyz` → `76.76.21.21` (A record) or registrar ALIAS to Vercel
    - Optional `www` → `cname.vercel-dns.com`
    - `refer` → `cname.vercel-dns.com`
+   - `age` → `cname.vercel-dns.com`
 8. In [Resend](https://resend.com): verify domains `thegreenjar.xyz` and `refer.thegreenjar.xyz` (SPF + DKIM). Without this, referral emails will fail or land in spam. Send from `rewards@refer.thegreenjar.xyz`.
 9. Confirm Vercel Cron is active for `/api/cron/referral-weekly` (see `vercel.json`, daily `0 15 * * *` UTC ≈ 10am Central).
 
@@ -132,6 +144,17 @@ Existing Green Jar COAs are migrated to the seeded store `green-jar`.
 | `/login` | Platform sign-in |
 | `/refer` | Tell a Friend public signup |
 | `/refer/unsubscribe` | Email opt-out |
+| `/age` | 21+ Age Checker (PWA, offline) |
+
+## 21+ Age Checker
+
+Mobile-first door check-in tool for staff. Enter MM / DD / YYYY; the device computes full years of age. Green = 21+, red = under 21 (shows the date they turn 21). Clear resets for the next guest.
+
+- Birth dates never leave the device (no accounts, no storage, no tracking)
+- Installable PWA on `age.thegreenjar.xyz` (Add to Home Screen)
+- Pure age logic + tests: `lib/age-check.ts`, `npm test`
+
+Deploy: add `age.thegreenjar.xyz` in Vercel domains and a DNS CNAME `age` → Vercel, same as `refer`.
 | `/api/coas?storeSlug=` | Store-scoped list / finalize upload |
 | `/api/coas/[id]/file?storeSlug=` | Store-scoped PDF redirect |
 | `/api/platform/stores` | Platform store CRUD |

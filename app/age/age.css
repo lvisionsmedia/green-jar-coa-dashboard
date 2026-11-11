@@ -1,0 +1,24 @@
+@import "tailwindcss";
+@source "./";
+
+@theme {
+  --color-age-bg: #06140c;
+  --color-age-panel: #0d2418;
+  --color-age-border: #1f4d32;
+  --color-age-ok: #167238;
+  --color-age-under: #b42318;
+  --color-age-warn: #b54708;
+  --color-age-neutral: #344054;
+  --color-age-text: #f9fafb;
+  --color-age-muted: #98a2b3;
+  --font-age: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+/* Age host: force dark high-contrast shell over global COA styles */
+.age-shell {
+  min-height: 100dvh;
+  background: var(--color-age-bg);
+  color: var(--color-age-text);
+  font-family: var(--font-age);
+  -webkit-tap-highlight-color: transparent;
+}
